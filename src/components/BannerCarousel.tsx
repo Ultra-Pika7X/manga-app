@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { getProxyUrl } from '@/lib/utils';
 
 interface Manga {
     id: string;
@@ -55,7 +56,7 @@ export default function BannerCarousel({ mangaList }: BannerCarouselProps) {
                     {/* Background Image with Blur */}
                     <div className="absolute inset-0">
                         <Image
-                            src={currentManga.cover}
+                            src={getProxyUrl(currentManga.cover)}
                             alt={currentManga.title}
                             fill
                             className="object-cover blur-[20px] scale-110 opacity-50"
@@ -77,7 +78,7 @@ export default function BannerCarousel({ mangaList }: BannerCarouselProps) {
                                 className="hidden md:block flex-shrink-0 w-[280px] h-[400px] relative rounded-xl overflow-hidden shadow-2xl shadow-purple-900/20 border border-white/10"
                             >
                                 <Image
-                                    src={currentManga.cover}
+                                    src={getProxyUrl(currentManga.cover)}
                                     alt={currentManga.title}
                                     fill
                                     className="object-cover"

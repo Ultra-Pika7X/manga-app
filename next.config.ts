@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: 'wsrv.nl',
+      },
+      {
+        protocol: 'https',
         hostname: 'uploads.mangadex.org',
       },
       {

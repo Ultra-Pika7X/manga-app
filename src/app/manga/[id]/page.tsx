@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { ScraperEngine } from '@/lib/scraper';
 import { Calendar, BookOpen, User as UserIcon, ExternalLink } from 'lucide-react';
+import { getProxyUrl } from '@/lib/utils';
 
 interface PageProps {
     params: {
@@ -39,7 +40,7 @@ export default async function MangaDetails({ params, searchParams }: PageProps) 
             <div className="relative h-[50vh] w-full overflow-hidden">
                 <div
                     className="absolute inset-0 bg-cover bg-center blur-md opacity-50 scale-105"
-                    style={{ backgroundImage: `url(${manga.cover})` }}
+                    style={{ backgroundImage: `url(${getProxyUrl(manga.cover)})` }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60 via-slate-900/80 to-slate-900" />
             </div>
@@ -49,7 +50,7 @@ export default async function MangaDetails({ params, searchParams }: PageProps) 
                     {/* Cover Image */}
                     <div className="flex-shrink-0 w-64 md:w-80 mx-auto md:mx-0">
                         <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10">
-                            <img src={manga.cover} alt={manga.title} className="w-full h-full object-cover" />
+                            <img src={getProxyUrl(manga.cover)} alt={manga.title} className="w-full h-full object-cover" />
                         </div>
                     </div>
 

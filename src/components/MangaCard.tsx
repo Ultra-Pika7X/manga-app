@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Manga } from '@/lib/scraper';
 
+import { getProxyUrl } from '@/lib/utils';
+
 interface MangaCardProps {
     manga: Manga;
 }
@@ -10,7 +12,7 @@ export default function MangaCard({ manga }: MangaCardProps) {
         <Link href={`/manga/${manga.id}?sourceId=${manga.sourceId}`} className="group relative block aspect-[2/3] rounded-xl overflow-hidden shadow-lg transition-transform hover:scale-105 hover:shadow-2xl hover:z-10">
             <div
                 className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                style={{ backgroundImage: `url(${manga.cover})` }}
+                style={{ backgroundImage: `url(${getProxyUrl(manga.cover)})` }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
 

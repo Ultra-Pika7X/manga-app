@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Play, Info } from 'lucide-react';
 import { Manga } from '@/lib/scraper';
+import { getProxyUrl } from '@/lib/utils';
 
 interface HeroProps {
     manga: Manga;
@@ -12,7 +13,7 @@ export default function Hero({ manga }: HeroProps) {
             {/* Backdrop Image - In a real app, use a high-res banner if available, falling back to cover */}
             <div
                 className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: `url(${manga.cover})` }}
+                style={{ backgroundImage: `url(${getProxyUrl(manga.cover)})` }}
             >
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent" />
