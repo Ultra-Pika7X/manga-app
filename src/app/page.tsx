@@ -1,6 +1,7 @@
 import Navbar from '@/components/Navbar';
 import BannerCarousel from '@/components/BannerCarousel';
 import MangaCard from '@/components/MangaCard';
+import ContinueReading from '@/components/ContinueReading';
 import { MangaDex } from '@/lib/scraper';
 
 export default async function Home() {
@@ -41,6 +42,8 @@ export default async function Home() {
       <Navbar />
 
       <BannerCarousel mangaList={bannerManga} />
+
+      <ContinueReading />
 
       <section className="max-w-7xl mx-auto px-6 mt-12">
         <div className="flex items-center justify-between mb-6">

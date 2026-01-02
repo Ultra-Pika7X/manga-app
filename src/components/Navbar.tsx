@@ -47,25 +47,28 @@ export default function Navbar() {
                         />
                     </form>
 
-                    <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                    <Link href="/library" className="p-2 hover:bg-white/10 rounded-full transition-colors">
                         <Library className="w-5 h-5 text-gray-300" />
-                    </button>
+                    </Link>
 
                     {user ? (
                         <div className="relative group">
-                            <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                            <Link href="/profile" className="p-2 hover:bg-white/10 rounded-full transition-colors flex items-center">
                                 {user.photoURL ? (
                                     <img src={user.photoURL} alt="User" className="w-6 h-6 rounded-full" />
                                 ) : (
                                     <User className="w-5 h-5 text-purple-400" />
                                 )}
-                            </button>
-                            <div className="absolute right-0 mt-2 w-48 bg-black border border-white/10 rounded-xl shadow-xl overflow-hidden hidden group-hover:block">
+                            </Link>
+                            <div className="absolute right-0 mt-2 w-48 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden hidden group-hover:block animate-in fade-in zoom-in-95 duration-200">
                                 <div className="p-3 border-b border-white/10">
                                     <p className="text-white text-sm font-bold truncate">{user.displayName || 'User'}</p>
                                     <p className="text-gray-400 text-xs truncate">{user.email}</p>
                                 </div>
-                                <button onClick={() => logout()} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/10 transition-colors">
+                                <Link href="/profile" className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors">
+                                    View Profile
+                                </Link>
+                                <button onClick={() => logout()} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/10 transition-colors border-t border-white/5">
                                     Logout
                                 </button>
                             </div>

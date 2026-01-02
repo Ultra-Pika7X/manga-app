@@ -9,15 +9,25 @@ interface PageProps {
     };
     searchParams: {
         sourceId?: string;
+        mangaId?: string;
+        title?: string;
+        chapterTitle?: string;
+        cover?: string;
     };
 }
 
 export default async function ReaderPage({ params, searchParams }: PageProps) {
-    const { chapterId } = await params; // Await params in Next.js 15+ (though 14 is sync often, good practice)
-    const { sourceId } = await searchParams; // Await searchParams
+    const { chapterId } = await params;
+    const { sourceId } = await searchParams;
 
-    // Fetch images using the engine
+    // Fetch images and manga data using the engine
     const images = await ScraperEngine.getChapterImages(chapterId, sourceId);
+
+    // We need manga details for the history feature
+    // Ideally we should have a way to get manga info from chapterId or from the previous page
+    // For now, let's assume we can get basic info or it's passed via query params if needed
+    // But better: search for the manga by id if we can extract it or have it
+    // ScraperEngine.getMangaDetails might be needed if we don't have manga info
 
     if (!images || images.length === 0) {
         return (
@@ -32,6 +42,13 @@ export default async function ReaderPage({ params, searchParams }: PageProps) {
     }
 
     return (
-        <ReaderControls images={images} chapterId={chapterId} />
+        <ReaderControls
+            images={images}
+            chapterId={chapterId}
+            mangaId={searchParams.mangaId || ''}
+            mangaTitle={searchParams.title || 'Manga'}
+            chapterTitle={searchParams.chapterTitle || 'Chapter'}
+            cover={searchParams.cover || ''}
+        />
     );
 }

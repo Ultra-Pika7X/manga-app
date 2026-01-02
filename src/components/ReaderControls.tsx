@@ -4,14 +4,37 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Maximize, Minimize, Download, Moon, Sun, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useHistory } from '@/hooks/useHistory';
 
 interface ReaderControlsProps {
     images: string[];
     chapterId: string;
+    mangaId: string;
+    mangaTitle: string;
+    chapterTitle: string;
+    cover: string;
 }
 
-export default function ReaderControls({ images, chapterId }: ReaderControlsProps) {
+export default function ReaderControls({
+    images,
+    chapterId,
+    mangaId,
+    mangaTitle,
+    chapterTitle,
+    cover
+}: ReaderControlsProps) {
+    const { addToHistory } = useHistory();
     const [isFullscreen, setIsFullscreen] = useState(false);
+
+    useEffect(() => {
+        addToHistory({
+            id: chapterId,
+            mangaId,
+            mangaTitle,
+            chapterTitle,
+            cover
+        });
+    }, [chapterId, mangaId]);
     const [showControls, setShowControls] = useState(true);
     const [theme, setTheme] = useState<'dark' | 'light' | 'cloudy'>('dark');
     const containerRef = useRef<HTMLDivElement>(null);

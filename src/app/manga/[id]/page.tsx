@@ -3,6 +3,7 @@ import Navbar from '@/components/Navbar';
 import { ScraperEngine } from '@/lib/scraper';
 import { Calendar, BookOpen, User as UserIcon, ExternalLink } from 'lucide-react';
 import { getProxyUrl } from '@/lib/utils';
+import FavoriteButton from '@/components/FavoriteButton';
 
 interface PageProps {
     params: {
@@ -72,19 +73,23 @@ export default async function MangaDetails({ params, searchParams }: PageProps) 
                             {manga.title}
                         </h1>
 
-                        <div className="flex flex-wrap items-center gap-6 text-sm text-gray-300 mb-8">
-                            {manga.status && (
-                                <span className="bg-purple-600/80 px-3 py-1 rounded-full text-white font-semibold uppercase tracking-wide text-xs">
-                                    {manga.status}
-                                </span>
-                            )}
-                            <div className="flex items-center">
-                                <UserIcon className="w-4 h-4 mr-2 text-purple-400" />
-                                <span>{manga.author || 'Unknown Author'}</span>
-                            </div>
-                            <div className="flex items-center">
-                                <BookOpen className="w-4 h-4 mr-2 text-purple-400" />
-                                <span>{chapters.length} Chapters</span>
+                        <div className="flex flex-wrap items-center gap-4 mb-8">
+                            <FavoriteButton manga={manga} />
+
+                            <div className="flex flex-wrap items-center gap-6 text-sm text-gray-300">
+                                {manga.status && (
+                                    <span className="bg-purple-600/80 px-3 py-1 rounded-full text-white font-semibold uppercase tracking-wide text-xs">
+                                        {manga.status}
+                                    </span>
+                                )}
+                                <div className="flex items-center">
+                                    <UserIcon className="w-4 h-4 mr-2 text-purple-400" />
+                                    <span>{manga.author || 'Unknown Author'}</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <BookOpen className="w-4 h-4 mr-2 text-purple-400" />
+                                    <span>{chapters.length} Chapters</span>
+                                </div>
                             </div>
                         </div>
 
@@ -131,7 +136,7 @@ export default async function MangaDetails({ params, searchParams }: PageProps) 
                                         </a>
                                     ) : (
                                         <Link
-                                            href={`/read/${chapter.id}?sourceId=${chapter.sourceId || sourceId}`}
+                                            href={`/read/${chapter.id}?sourceId=${chapter.sourceId || sourceId}&mangaId=${manga.id}&title=${encodeURIComponent(manga.title)}&chapterTitle=${encodeURIComponent(chapter.title)}&cover=${encodeURIComponent(manga.cover)}`}
                                             className="px-6 py-2 bg-white/10 text-white hover:bg-purple-600 rounded-lg text-sm font-medium transition-colors"
                                         >
                                             Read

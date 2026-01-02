@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, User, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { onAuthStateChanged, User, signOut, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -9,6 +9,8 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
+    signInWithEmail: (email: string, pass: string) => Promise<void>;
+    signUpWithEmail: (email: string, pass: string) => Promise<void>;
     logout: () => Promise<void>;
     isFirebaseEnabled: boolean;
 }
@@ -48,6 +50,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             router.push('/');
         } catch (error) {
             console.error("Error signing in with Google", error);
+            throw error;
+        }
+    };
+
+    const signInWithEmail = async (email: string, pass: string) => {
+        if (!isFirebaseConfigured || !auth) return;
+        try {
+            await signInWithEmailAndPassword(auth, email, pass);
+            router.push('/');
+        } catch (error) {
+            console.error("Error signing in with Email", error);
+            throw error;
+        }
+    };
+
+    const signUpWithEmail = async (email: string, pass: string) => {
+        if (!isFirebaseConfigured || !auth) return;
+        try {
+            await createUserWithEmailAndPassword(auth, email, pass);
+            router.push('/');
+        } catch (error) {
+            console.error("Error signing up with Email", error);
+            throw error;
         }
     };
 
@@ -60,7 +85,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, signInWithGoogle, logout, isFirebaseEnabled: isFirebaseConfigured }}>
+        <AuthContext.Provider value={{
+            user,
+            loading,
+            signInWithGoogle,
+            signInWithEmail,
+            signUpWithEmail,
+            logout,
+            isFirebaseEnabled: isFirebaseConfigured
+        }}>
             {!loading && children}
         </AuthContext.Provider>
     );
