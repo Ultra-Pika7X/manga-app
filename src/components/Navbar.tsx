@@ -1,16 +1,28 @@
 "use client";
 
 import Link from 'next/link';
-import { Search, Library, User } from 'lucide-react';
-import { useState } from 'react';
+import { Search, Library, User, LogOut } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const { user, logout } = useAuth();
     const router = useRouter();
+    const userMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+                setIsUserMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -52,26 +64,50 @@ export default function Navbar() {
                     </Link>
 
                     {user ? (
-                        <div className="relative group">
-                            <Link href="/profile" className="p-2 hover:bg-white/10 rounded-full transition-colors flex items-center">
+                        <div className="relative" ref={userMenuRef}>
+                            <button
+                                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                                className={`p-1.5 rounded-xl transition-all flex items-center border ${isUserMenuOpen ? 'bg-white/10 border-white/20' : 'hover:bg-white/10 border-transparent'}`}
+                            >
                                 {user.photoURL ? (
-                                    <img src={user.photoURL} alt="User" className="w-6 h-6 rounded-full" />
+                                    <img src={user.photoURL} alt="User" className="w-7 h-7 rounded-lg shadow-lg" />
                                 ) : (
-                                    <User className="w-5 h-5 text-purple-400" />
+                                    <div className="w-7 h-7 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                                        <User className="w-4 h-4 text-white" />
+                                    </div>
                                 )}
-                            </Link>
-                            <div className="absolute right-0 mt-2 w-48 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden hidden group-hover:block animate-in fade-in zoom-in-95 duration-200">
-                                <div className="p-3 border-b border-white/10">
-                                    <p className="text-white text-sm font-bold truncate">{user.displayName || 'User'}</p>
-                                    <p className="text-gray-400 text-xs truncate">{user.email}</p>
+                            </button>
+
+                            {isUserMenuOpen && (
+                                <div className="absolute right-0 mt-3 w-56 bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="p-4 border-b border-white/10 bg-white/5">
+                                        <p className="text-white text-sm font-bold truncate">{user.displayName || 'Manga Enthusiast'}</p>
+                                        <p className="text-gray-400 text-xs truncate mt-0.5">{user.email}</p>
+                                    </div>
+                                    <div className="p-2">
+                                        <Link
+                                            href="/profile"
+                                            onClick={() => setIsUserMenuOpen(false)}
+                                            className="flex items-center space-x-3 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:text-white rounded-xl transition-colors"
+                                        >
+                                            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                                                <User className="w-4 h-4 text-purple-400" />
+                                            </div>
+                                            <span>Profile & Settings</span>
+                                        </Link>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            logout();
+                                            setIsUserMenuOpen(false);
+                                        }}
+                                        className="w-full flex items-center space-x-3 px-5 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors border-t border-white/5"
+                                    >
+                                        <LogOut className="w-4 h-4" />
+                                        <span>Sign Out</span>
+                                    </button>
                                 </div>
-                                <Link href="/profile" className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors">
-                                    View Profile
-                                </Link>
-                                <button onClick={() => logout()} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/10 transition-colors border-t border-white/5">
-                                    Logout
-                                </button>
-                            </div>
+                            )}
                         </div>
                     ) : (
                         <Link href="/login" className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-full transition-all">
