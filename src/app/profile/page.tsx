@@ -65,7 +65,7 @@ export default function ProfilePage() {
                                     <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover rounded-[22px]" />
                                 ) : (
                                     <div className="w-full h-full bg-purple-600 flex items-center justify-center rounded-[22px]">
-                                        <User className="w-16 h-16 text-white" />
+                                        <UserIcon className="w-16 h-16 text-white" />
                                     </div>
                                 )}
                             </div>
