@@ -4,7 +4,6 @@ export const getProxyUrl = (url: string) => {
     // If it's already a proxied URL or local, return as is
     if (url.startsWith('/')) return url;
 
-    // Use wsrv.nl as an image proxy
-    // It handles hotlink protection and SSL
-    return `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
+    // Use internal API proxy which handles Referer headers correctly for Mangakakalot
+    return `/api/image-proxy?url=${encodeURIComponent(url)}`;
 };
