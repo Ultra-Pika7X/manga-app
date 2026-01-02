@@ -11,13 +11,17 @@ export default function Hero({ manga }: HeroProps) {
     return (
         <div className="relative h-[70vh] w-full overflow-hidden">
             {/* Backdrop Image - In a real app, use a high-res banner if available, falling back to cover */}
-            <div
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: `url(${getProxyUrl(manga.cover)})` }}
-            >
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent" />
+            <div className="absolute inset-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                    src={getProxyUrl(manga.cover)}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                />
             </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent" />
 
             <div className="absolute bottom-0 left-0 w-full p-8 md:p-16 z-10 flex flex-col items-start space-y-4 max-w-4xl">
                 <span className="px-3 py-1 bg-purple-600 text-white text-xs font-bold rounded-full uppercase tracking-wider">
@@ -44,6 +48,6 @@ export default function Hero({ manga }: HeroProps) {
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

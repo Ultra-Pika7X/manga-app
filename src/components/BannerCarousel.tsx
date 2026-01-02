@@ -61,6 +61,8 @@ export default function BannerCarousel({ mangaList }: BannerCarouselProps) {
                             fill
                             className="object-cover blur-[20px] scale-110 opacity-50"
                             priority
+                            unoptimized
+                            referrerPolicy="no-referrer"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/60 to-transparent" />
                         <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f0f] via-[#0f0f0f]/40 to-transparent" />
@@ -82,6 +84,8 @@ export default function BannerCarousel({ mangaList }: BannerCarouselProps) {
                                     alt={currentManga.title}
                                     fill
                                     className="object-cover"
+                                    unoptimized
+                                    referrerPolicy="no-referrer"
                                 />
                             </motion.div>
 

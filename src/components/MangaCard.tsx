@@ -9,10 +9,14 @@ interface MangaCardProps {
 
 export default function MangaCard({ manga }: MangaCardProps) {
     return (
-        <Link href={`/manga/${manga.id}?sourceId=${manga.sourceId}`} className="group relative block aspect-[2/3] rounded-xl overflow-hidden shadow-lg transition-transform hover:scale-105 hover:shadow-2xl hover:z-10">
-            <div
-                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                style={{ backgroundImage: `url(${getProxyUrl(manga.cover)})` }}
+        <Link href={`/manga/${manga.id}?sourceId=${manga.sourceId}`} className="group relative block aspect-[2/3] rounded-xl overflow-hidden shadow-lg transition-transform hover:scale-105 hover:shadow-2xl hover:z-10 bg-gray-800">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+                src={getProxyUrl(manga.cover)}
+                alt={manga.title}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                referrerPolicy="no-referrer"
+                loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
 
