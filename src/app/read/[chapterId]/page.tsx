@@ -49,6 +49,7 @@ export default async function ReaderPage({ params, searchParams }: PageProps) {
             mangaTitle={searchParams.title || 'Manga'}
             chapterTitle={searchParams.chapterTitle || 'Chapter'}
             cover={searchParams.cover || ''}
+            sourceId={sourceId || 'mangadex'}
         />
     );
 }

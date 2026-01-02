@@ -1,5 +1,8 @@
 import { MangaDexSource } from './sources/mangadex';
 import { MangakakalotSource } from './sources/mangakakalot';
+import { MangaBuddySource } from './sources/mangabuddy';
+import { WeebDexSource } from './sources/weebdex';
+import { MangaParkSource } from './sources/mangapark';
 import { MangaSource, Manga, MangaDetails } from './types';
 
 export type { MangaSource, Manga, MangaDetails };
@@ -9,6 +12,9 @@ export type { MangaSource, Manga, MangaDetails };
 const sources: Record<string, MangaSource> = {
     [MangaDexSource.id]: MangaDexSource,
     [MangakakalotSource.id]: MangakakalotSource,
+    [MangaBuddySource.id]: MangaBuddySource,
+    [WeebDexSource.id]: WeebDexSource,
+    [MangaParkSource.id]: MangaParkSource,
 };
 
 export const ScraperEngine = {
@@ -46,7 +52,19 @@ export const ScraperEngine = {
         // Handling for legacy calls that might not pass sourceId
         // If chapterId is a URL (Mangakakalot), try Mangakakalot
         if (chapterId.startsWith('http')) {
-            return sources['mangakakalot'].getChapterImages(chapterId);
+            // Very basic heuristic
+            if (chapterId.includes('mangakakalot') || chapterId.includes('manganato')) {
+                return sources['mangakakalot'].getChapterImages(chapterId);
+            }
+            if (chapterId.includes('mangabuddy')) {
+                return sources['mangabuddy'].getChapterImages(chapterId);
+            }
+            if (chapterId.includes('weebdex')) {
+                return sources['weebdex'].getChapterImages(chapterId);
+            }
+            if (chapterId.includes('mangapark')) {
+                return sources['mangapark'].getChapterImages(chapterId);
+            }
         }
 
         return sources['mangadex'].getChapterImages(chapterId);

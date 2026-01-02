@@ -11,6 +11,7 @@ export interface HistoryItem {
     mangaTitle: string;
     chapterTitle: string;
     cover: string;
+    sourceId: string; // Source of the manga
     timestamp: any;
     progress?: number;
 }
@@ -55,7 +56,12 @@ export function useHistory() {
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const items: HistoryItem[] = [];
             snapshot.forEach((doc) => {
-                items.push(doc.data() as HistoryItem);
+                const data = doc.data() as HistoryItem;
+                // Backfill sourceId for legacy items
+                if (!data.sourceId) {
+                    data.sourceId = 'mangadex';
+                }
+                items.push(data);
             });
             setHistory(items);
             setLoading(false);
@@ -66,7 +72,12 @@ export function useHistory() {
 
     const addToHistory = async (item: Omit<HistoryItem, 'timestamp'>) => {
         const timestamp = Date.now();
-        const newItem = { ...item, timestamp };
+        // Ensure sourceId is present, default to mangadex if missing (shouldn't happen with new logic but safe fallback)
+        const newItem = {
+            ...item,
+            sourceId: item.sourceId || 'mangadex',
+            timestamp
+        };
 
         if (!isFirebaseConfigured || !isFirebaseEnabled || !user || !db) {
             const currentHistory = loadLocalHistory();

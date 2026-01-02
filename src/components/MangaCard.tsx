@@ -9,7 +9,7 @@ interface MangaCardProps {
 
 export default function MangaCard({ manga }: MangaCardProps) {
     return (
-        <Link href={`/manga/${manga.id}?sourceId=${manga.sourceId}`} className="group relative block aspect-[2/3] rounded-xl overflow-hidden shadow-lg transition-transform hover:scale-105 hover:shadow-2xl hover:z-10 bg-gray-800">
+        <Link href={`/manga/${manga.id}?sourceId=${manga.sourceId || 'mangadex'}`} className="group relative block aspect-[2/3] rounded-xl overflow-hidden shadow-lg transition-transform hover:scale-105 hover:shadow-2xl hover:z-10 bg-gray-800">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
                 src={getProxyUrl(manga.cover)}

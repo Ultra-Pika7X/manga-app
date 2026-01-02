@@ -13,6 +13,7 @@ interface ReaderControlsProps {
     mangaTitle: string;
     chapterTitle: string;
     cover: string;
+    sourceId: string;
 }
 
 export default function ReaderControls({
@@ -21,7 +22,8 @@ export default function ReaderControls({
     mangaId,
     mangaTitle,
     chapterTitle,
-    cover
+    cover,
+    sourceId
 }: ReaderControlsProps) {
     const { addToHistory } = useHistory();
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -32,9 +34,10 @@ export default function ReaderControls({
             mangaId,
             mangaTitle,
             chapterTitle,
-            cover
+            cover,
+            sourceId
         });
-    }, [chapterId, mangaId]);
+    }, [chapterId, mangaId, sourceId]);
     const [showControls, setShowControls] = useState(true);
     const [theme, setTheme] = useState<'dark' | 'light' | 'cloudy'>('dark');
     const containerRef = useRef<HTMLDivElement>(null);

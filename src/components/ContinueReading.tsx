@@ -24,7 +24,7 @@ export default function ContinueReading() {
                 {history.slice(0, 3).map((item) => (
                     <Link
                         key={item.mangaId}
-                        href={`/read/${item.id}?mangaId=${item.mangaId}&title=${encodeURIComponent(item.mangaTitle)}&chapterTitle=${encodeURIComponent(item.chapterTitle)}&cover=${encodeURIComponent(item.cover)}`}
+                        href={`/read/${item.id}?sourceId=${item.sourceId || 'mangadex'}&mangaId=${item.mangaId}&title=${encodeURIComponent(item.mangaTitle)}&chapterTitle=${encodeURIComponent(item.chapterTitle)}&cover=${encodeURIComponent(item.cover)}`}
                         className="group relative flex gap-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-3 transition-all hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
                     >
                         <div className="relative w-24 aspect-[2/3] rounded-xl overflow-hidden flex-shrink-0 shadow-lg">
