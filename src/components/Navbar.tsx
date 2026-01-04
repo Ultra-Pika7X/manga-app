@@ -24,10 +24,27 @@ export default function Navbar() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const [source, setSource] = useState('all');
+
+    // Available sources
+    const sources = [
+        { id: 'all', name: 'All Sources' },
+        { id: 'mangadex', name: 'MangaDex' },
+        { id: 'mangabuddy', name: 'MangaBuddy' },
+        { id: 'mangapark', name: 'MangaPark' },
+        { id: 'weebdex', name: 'WeebDex' },
+        { id: 'mangakakalot', name: 'Mangakakalot' },
+    ];
+
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         if (searchQuery.trim()) {
-            router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+            const params = new URLSearchParams();
+            params.set('q', searchQuery);
+            if (source !== 'all') {
+                params.set('sourceId', source);
+            }
+            router.push(`/search?${params.toString()}`);
         }
     };
 
@@ -45,8 +62,19 @@ export default function Navbar() {
                 </div>
 
                 <div className="flex items-center space-x-4">
-                    <form onSubmit={handleSearch} className={`flex items-center bg-white/10 rounded-full px-4 py-1 transition-all ${isOpen ? 'w-64' : 'w-10 overflow-hidden'}`}>
-                        <button type="button" onClick={() => setIsOpen(!isOpen)} className="mr-2">
+                    <form onSubmit={handleSearch} className={`flex items-center bg-white/10 rounded-full px-2 py-1 transition-all ${isOpen ? 'w-full md:w-96' : 'w-10 overflow-hidden'}`}>
+                        {isOpen && (
+                            <select
+                                value={source}
+                                onChange={(e) => setSource(e.target.value)}
+                                className="bg-transparent border-none text-xs text-gray-300 focus:outline-none mr-2 max-w-[100px] cursor-pointer"
+                            >
+                                {sources.map(s => (
+                                    <option key={s.id} value={s.id} className="bg-[#1a1a2e] text-gray-300">{s.name}</option>
+                                ))}
+                            </select>
+                        )}
+                        <button type="button" onClick={() => setIsOpen(!isOpen)} className="p-2">
                             <Search className="w-5 h-5 text-gray-300" />
                         </button>
                         <input

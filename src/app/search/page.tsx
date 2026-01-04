@@ -1,16 +1,18 @@
 import Navbar from '@/components/Navbar';
 import MangaCard from '@/components/MangaCard';
-import { MangaDex } from '@/lib/scraper';
+import { ScraperEngine } from '@/lib/scraper';
 
 interface PageProps {
     searchParams: {
         q?: string;
+        sourceId?: string;
     }
 }
 
 export default async function SearchPage({ searchParams }: PageProps) {
     const query = searchParams.q || '';
-    const results = query ? await MangaDex.search(query) : [];
+    const sourceId = searchParams.sourceId;
+    const results = query ? await ScraperEngine.search(query, sourceId) : [];
 
     return (
         <main className="min-h-screen bg-cloudy pb-20">

@@ -18,7 +18,12 @@ const sources: Record<string, MangaSource> = {
 };
 
 export const ScraperEngine = {
-    async search(query: string): Promise<Manga[]> {
+    async search(query: string, sourceId?: string): Promise<Manga[]> {
+        // If a specific source is requested
+        if (sourceId && sources[sourceId]) {
+            return sources[sourceId].search(query);
+        }
+
         // Run searches in parallel
         const promises = Object.values(sources).map(source => source.search(query));
         const results = await Promise.all(promises);
