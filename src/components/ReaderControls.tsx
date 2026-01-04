@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Maximize, Minimize, Download, Moon, Sun, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useHistory } from '@/hooks/useHistory';
+import { getProxyUrl } from '@/lib/utils';
 
 interface ReaderControlsProps {
     images: string[];
@@ -157,7 +158,7 @@ export default function ReaderControls({
                 {images.map((src, index) => (
                     <div key={index} className="relative w-full">
                         <img
-                            src={src}
+                            src={getProxyUrl(src)}
                             alt={`Page ${index + 1}`}
                             className="w-full h-auto block"
                             loading="lazy"

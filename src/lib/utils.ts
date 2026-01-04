@@ -4,6 +4,6 @@ export const getProxyUrl = (url: string) => {
     // If it's already a proxied URL or local, return as is
     if (url.startsWith('/')) return url;
 
-    // Bypass proxy and use direct URL with no-referrer policy on client
-    return url;
+    // Use our image proxy API to bypass hotlinking protection
+    return `/api/image-proxy?url=${encodeURIComponent(url)}`;
 };
