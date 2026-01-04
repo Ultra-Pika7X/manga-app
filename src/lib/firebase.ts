@@ -11,22 +11,10 @@ const firebaseConfig = {
     appId: "1:462196168770:web:8790cccd8af9b56f7835db"
 };
 
-// Check if Firebase is configured
-const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
-
-// Initialize Firebase only if configured
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
-
-if (isFirebaseConfigured) {
-    try {
-        app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-        auth = getAuth(app);
-        db = getFirestore(app);
-    } catch (error) {
-        console.warn("Firebase initialization failed:", error);
-    }
-}
+// Initialize Firebase directly since we have the config
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const isFirebaseConfigured = true;
 
 export { app, auth, db, isFirebaseConfigured };
