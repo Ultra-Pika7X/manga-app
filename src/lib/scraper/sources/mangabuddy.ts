@@ -94,19 +94,14 @@ export const MangaBuddySource: MangaSource = {
                 const href = a.attr('href');
                 const time = $(element).find('time').text().trim();
 
-                // ID extraction: "/one-piece/chapter-123" -> "chapter-123"
-                // But for MangaBuddy, the chapter link is relative e.g., /manga-name/chapter-id
-                // We'll use the full relative path or just the last part? 
-                // Let's use the full relative path minus the manga part to be safe, or just the whole slug?
-                // Actually, getChapterImages will need to construct the URL.
-                // Let's store the full href relative part as ID, or just the end?
-                // If we perform `axios.get(BASE_URL + chapterId)`, then chapterId should be `/manga/chapter`.
-                // HREF is usually `/manga-name/chapter-slug`.
-                const chapterId = href || '';
+                // ID extraction: href is like "/one-piece/chapter-1-romance-dawn"
+                // We need to encode this to be URL-safe for Next.js routing
+                // Replace slashes with a safe delimiter that we can decode later
+                const chapterId = href ? encodeURIComponent(href) : '';
 
                 if (chapterId) {
                     chapters.push({
-                        id: chapterId, // This might be "/one-piece/chapter-100"
+                        id: chapterId, // URL-encoded path
                         title,
                         chapter: title.match(/Chapter\s+([\d.]+)/)?.[1] || '',
                         publishAt: time,
@@ -125,8 +120,9 @@ export const MangaBuddySource: MangaSource = {
 
     async getChapterImages(chapterId: string): Promise<string[]> {
         try {
-            // chapterId is expected to be the relative path e.g. "/one-piece/chapter-100"
-            const url = chapterId.startsWith('http') ? chapterId : `${BASE_URL}${chapterId}`;
+            // chapterId is URL-encoded, decode it first
+            const decodedChapterId = decodeURIComponent(chapterId);
+            const url = decodedChapterId.startsWith('http') ? decodedChapterId : `${BASE_URL}${decodedChapterId}`;
 
             const { data } = await axios.get(url, {
                 headers: {

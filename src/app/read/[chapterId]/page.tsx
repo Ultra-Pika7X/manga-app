@@ -30,12 +30,32 @@ export default async function ReaderPage({ params, searchParams }: PageProps) {
     // ScraperEngine.getMangaDetails might be needed if we don't have manga info
 
     if (!images || images.length === 0) {
+        // Build a fallback URL to MangaBuddy
+        const decodedChapterId = decodeURIComponent(chapterId);
+        const mangabuddyUrl = sourceId === 'mangabuddy' && decodedChapterId.startsWith('/')
+            ? `https://mangabuddy.com${decodedChapterId}`
+            : `https://mangabuddy.com`;
+
         return (
             <main className="min-h-screen bg-gray-900 flex items-center justify-center text-white">
-                <div className="text-center">
-                    <h1 className="text-2xl font-bold mb-4">Error loading chapter</h1>
-                    <p>No images found or external chapter.</p>
-                    <Link href="/" className="text-purple-400 mt-4 block hover:underline">Go Home</Link>
+                <div className="text-center max-w-md p-8">
+                    <div className="text-6xl mb-4">📖</div>
+                    <h1 className="text-2xl font-bold mb-4">Unable to load chapter</h1>
+                    <p className="text-gray-400 mb-6">
+                        We couldn&apos;t load this chapter in the app.
+                        You can read it directly on the source website instead.
+                    </p>
+                    <a
+                        href={mangabuddyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors mb-4"
+                    >
+                        Read on MangaBuddy →
+                    </a>
+                    <Link href="/" className="text-purple-400 block hover:underline mt-4">
+                        Go Home
+                    </Link>
                 </div>
             </main>
         );
