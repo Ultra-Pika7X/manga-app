@@ -30,10 +30,11 @@ export default function SourceSwitcher({ currentSource, mangaTitle }: SourceSwit
         const params = new URLSearchParams();
         params.set('q', mangaTitle);
         params.set('sourceId', sourceId);
+        params.set('autoselect', 'true');
         router.push(`/search?${params.toString()}`);
     };
 
-    const currentSourceName = sources.find(s => s.id === (currentSource || 'mangadex'))?.name || 'Unknown Source';
+    const currentSourceName = sources.find(s => s.id === (currentSource || 'mangabuddy'))?.name || 'Unknown Source';
 
     return (
         <div className="relative inline-block text-left ml-4">

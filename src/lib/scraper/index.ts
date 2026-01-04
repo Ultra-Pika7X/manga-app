@@ -45,7 +45,10 @@ export const ScraperEngine = {
         // BUT, our "Manga" object from search includes "sourceId".
         // So the frontend SHOULD pass the sourceId.
 
-        // Fallback: Try MangaDex as default if no source provided (legacy support)
+        // Fallback: Try MangaBuddy as default (per user request)
+        if (sources['mangabuddy']) {
+            return sources['mangabuddy'].getMangaDetails(mangaId);
+        }
         return sources['mangadex'].getMangaDetails(mangaId);
     },
 
@@ -72,6 +75,10 @@ export const ScraperEngine = {
             }
         }
 
+        // Default to MangaBuddy if no match
+        if (sources['mangabuddy']) {
+            return sources['mangabuddy'].getChapterImages(chapterId);
+        }
         return sources['mangadex'].getChapterImages(chapterId);
     }
 };

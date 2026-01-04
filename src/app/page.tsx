@@ -2,7 +2,7 @@ import Navbar from '@/components/Navbar';
 import BannerCarousel from '@/components/BannerCarousel';
 import MangaCard from '@/components/MangaCard';
 import ContinueReading from '@/components/ContinueReading';
-import { MangaDex } from '@/lib/scraper';
+import { ScraperEngine } from '@/lib/scraper';
 
 export default async function Home() {
   // Fetch data on the server
@@ -24,7 +24,7 @@ export default async function Home() {
 
   // Fetch all queries in parallel
   const bannerResults = await Promise.all(
-    bannerQueries.map(q => MangaDex.search(q))
+    bannerQueries.map(q => ScraperEngine.search(q, 'mangabuddy'))
   );
 
   // Flatten and take the first valid result from each search

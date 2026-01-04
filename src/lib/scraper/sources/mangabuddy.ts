@@ -13,14 +13,18 @@ export const MangaBuddySource: MangaSource = {
             const formattedQuery = query.toLowerCase().replace(/ /g, '-');
             const url = `${BASE_URL}/search?q=${formattedQuery}`;
 
-            const { data } = await axios.get(url);
+            const { data } = await axios.get(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            });
             const $ = cheerio.load(data);
 
             const results: Manga[] = [];
 
             // Selectors based on MangaBuddy structure
             $('.book-item').each((_, element) => {
-                const titleElement = $(element).find('.title a');
+                const titleElement = $(element).find('.title h3 a');
                 const imgElement = $(element).find('.thumb img');
 
                 const title = titleElement.text().trim();
@@ -55,7 +59,11 @@ export const MangaBuddySource: MangaSource = {
     async getMangaDetails(id: string): Promise<MangaDetails | null> {
         try {
             const url = `${BASE_URL}/${id}`;
-            const { data } = await axios.get(url);
+            const { data } = await axios.get(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            });
             const $ = cheerio.load(data);
 
             // Selectors for details
@@ -120,7 +128,11 @@ export const MangaBuddySource: MangaSource = {
             // chapterId is expected to be the relative path e.g. "/one-piece/chapter-100"
             const url = chapterId.startsWith('http') ? chapterId : `${BASE_URL}${chapterId}`;
 
-            const { data } = await axios.get(url);
+            const { data } = await axios.get(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            });
             const $ = cheerio.load(data);
 
             const images: string[] = [];

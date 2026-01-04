@@ -1,18 +1,36 @@
 import Navbar from '@/components/Navbar';
 import MangaCard from '@/components/MangaCard';
 import { ScraperEngine } from '@/lib/scraper';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { Search } from 'lucide-react';
 
 interface PageProps {
     searchParams: {
         q?: string;
         sourceId?: string;
+        autoselect?: string;
     }
 }
 
 export default async function SearchPage({ searchParams }: PageProps) {
     const query = searchParams.q || '';
     const sourceId = searchParams.sourceId;
+    const autoselect = searchParams.autoselect;
     const results = query ? await ScraperEngine.search(query, sourceId) : [];
+
+    // Handle "Smart Switch" / Autoselect
+    if (autoselect === 'true' && sourceId && results.length > 0) {
+        // 1. Try exact title match
+        const exactMatch = results.find(m => m.title.toLowerCase() === query.toLowerCase());
+        if (exactMatch) {
+            redirect(`/manga/${exactMatch.id}?sourceId=${sourceId}`);
+        }
+        // 2. If only one result, assume it's the one
+        if (results.length === 1) {
+            redirect(`/manga/${results[0].id}?sourceId=${sourceId}`);
+        }
+    }
 
     return (
         <main className="min-h-screen bg-cloudy pb-20">
@@ -27,6 +45,11 @@ export default async function SearchPage({ searchParams }: PageProps) {
                             </>
                         ) : 'Discover Manga'}
                     </h1>
+                    {sourceId && query && (
+                        <p className="text-purple-300 text-sm mb-2">
+                            Source: {sourceId.charAt(0).toUpperCase() + sourceId.slice(1)}
+                        </p>
+                    )}
                     {query && results.length > 0 && (
                         <p className="text-gray-400">Found {results.length} amazing titles</p>
                     )}
@@ -35,7 +58,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
                 {results.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
                         {results.map((manga) => (
-                            <MangaCard key={manga.id} manga={manga} />
+                            <MangaCard key={`${manga.sourceId}-${manga.id}`} manga={manga} />
                         ))}
                     </div>
                 ) : (
@@ -50,7 +73,13 @@ export default async function SearchPage({ searchParams }: PageProps) {
                                     ? "Try different keywords or check if the title is spelled correctly."
                                     : "Enter a title, author, or genre to start your journey."}
                             </p>
+                            {sourceId === 'mangabuddy' && query && (
+                                <p className="text-xs mb-6 text-yellow-500/80">
+                                    Tip: MangaBuddy search can be picky. Try removing special characters or searching for the exact English title.
+                                </p>
+                            )}
                             <form action="/search" className="relative">
+                                {sourceId && <input type="hidden" name="sourceId" value={sourceId} />}
                                 <input
                                     name="q"
                                     type="text"

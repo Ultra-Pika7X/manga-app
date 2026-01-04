@@ -24,7 +24,7 @@ export default function Navbar() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const [source, setSource] = useState('all');
+    const [source, setSource] = useState('mangabuddy');
 
     // Available sources
     const sources = [
@@ -41,9 +41,7 @@ export default function Navbar() {
         if (searchQuery.trim()) {
             const params = new URLSearchParams();
             params.set('q', searchQuery);
-            if (source !== 'all') {
-                params.set('sourceId', source);
-            }
+            params.set('sourceId', source);
             router.push(`/search?${params.toString()}`);
         }
     };
