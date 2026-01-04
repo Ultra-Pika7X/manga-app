@@ -4,6 +4,7 @@ import { ScraperEngine } from '@/lib/scraper';
 import { Calendar, BookOpen, User as UserIcon, ExternalLink } from 'lucide-react';
 import { getProxyUrl } from '@/lib/utils';
 import FavoriteButton from '@/components/FavoriteButton';
+import SourceSwitcher from '@/components/SourceSwitcher';
 
 interface PageProps {
     params: {
@@ -99,12 +100,20 @@ export default async function MangaDetails({ params, searchParams }: PageProps) 
                     </div>
                 </div>
 
-                {/* Chapters List */}
                 <div className="mt-16">
-                    <h2 className="text-2xl font-bold mb-6 flex items-center">
-                        <span className="w-1 h-6 bg-purple-500 rounded-full mr-3" />
-                        Chapters
-                    </h2>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+                        <h2 className="text-2xl font-bold flex items-center mb-4 md:mb-0">
+                            <span className="w-1 h-6 bg-purple-500 rounded-full mr-3" />
+                            Chapters
+                        </h2>
+
+                        <div className="flex items-center gap-4">
+                            <p className="text-sm text-gray-400">
+                                Issues? Try another source:
+                            </p>
+                            <SourceSwitcher currentSource={sourceId || 'mangadex'} mangaTitle={manga.title} />
+                        </div>
+                    </div>
 
                     <div className="glass rounded-xl overflow-hidden divide-y divide-white/10">
                         {chapters.length > 0 ? (
