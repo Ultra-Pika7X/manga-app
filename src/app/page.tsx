@@ -22,9 +22,9 @@ export default async function Home() {
     'kaiju no 8'
   ];
 
-  // Fetch all queries in parallel
+  // Fetch all queries in parallel using MangaDex for reliable cover images
   const bannerResults = await Promise.all(
-    bannerQueries.map(q => ScraperEngine.search(q, 'mangabuddy'))
+    bannerQueries.map(q => ScraperEngine.search(q, 'mangadex'))
   );
 
   // Flatten and take the first valid result from each search
