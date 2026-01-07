@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AniListProvider } from "@/contexts/AniListContext";
 import AuthGuard from "@/components/AuthGuard";
 import AutoDownloader from '@/components/AutoDownloader';
 import GlobalDownloadManager from '@/components/GlobalDownloadManager';
@@ -49,11 +50,13 @@ export default function RootLayout({
       >
         <AuthProvider>
           <AuthGuard>
-            <DownloadSafetyProvider>
-              <AutoDownloader />
-              <GlobalDownloadManager />
-              {children}
-            </DownloadSafetyProvider>
+            <AniListProvider>
+              <DownloadSafetyProvider>
+                <AutoDownloader />
+                <GlobalDownloadManager />
+                {children}
+              </DownloadSafetyProvider>
+            </AniListProvider>
           </AuthGuard>
         </AuthProvider>
       </body>
