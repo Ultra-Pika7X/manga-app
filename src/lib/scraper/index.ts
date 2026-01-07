@@ -184,7 +184,7 @@ export const ScraperEngine = {
                 const images = await sources[sourceId].getChapterImages(chapterId);
                 const validation = validateImageSet(images);
                 if (validation.isValid) return images;
-            } catch (e) {
+            } catch (e: any) {
                 console.warn(`[Scraper] Source ${sourceId} failed for ${chapterId}:`, e.message);
             }
         }
