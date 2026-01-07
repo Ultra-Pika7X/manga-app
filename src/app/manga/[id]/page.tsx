@@ -1,18 +1,19 @@
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { ScraperEngine } from '@/lib/scraper';
-import { Calendar, BookOpen, User as UserIcon, ExternalLink } from 'lucide-react';
+import { BookOpen, User as UserIcon } from 'lucide-react';
 import { getProxyUrl } from '@/lib/utils';
 import FavoriteButton from '@/components/FavoriteButton';
 import SourceSwitcher from '@/components/SourceSwitcher';
+import MangaChapterList from '@/components/MangaChapterList';
 
 interface PageProps {
-    params: {
+    params: Promise<{
         id: string;
-    };
-    searchParams: {
+    }>;
+    searchParams: Promise<{
         sourceId?: string;
-    };
+    }>;
 }
 
 export default async function MangaDetails({ params, searchParams }: PageProps) {
@@ -101,64 +102,19 @@ export default async function MangaDetails({ params, searchParams }: PageProps) 
                 </div>
 
                 <div className="mt-16">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-                        <h2 className="text-2xl font-bold flex items-center mb-4 md:mb-0">
-                            <span className="w-1 h-6 bg-purple-500 rounded-full mr-3" />
-                            Chapters
-                        </h2>
-
-                        <div className="flex items-center gap-4">
-                            <p className="text-sm text-gray-400">
-                                Issues? Try another source:
-                            </p>
-                            <SourceSwitcher currentSource={sourceId || 'mangadex'} mangaTitle={manga.title} />
-                        </div>
-                    </div>
-
-                    <div className="glass rounded-xl overflow-hidden divide-y divide-white/10">
-                        {chapters.length > 0 ? (
-                            chapters.map((chapter) => (
-                                <div key={chapter.id} className="p-4 hover:bg-white/5 transition-colors group flex items-center justify-between">
-                                    <div className="flex flex-col">
-                                        <h4 className="font-semibold text-white group-hover:text-purple-300 transition-colors">
-                                            {chapter.title}
-                                        </h4>
-                                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                                            {chapter.volume && <span>Vol. {chapter.volume}</span>}
-                                            {chapter.publishAt && (
-                                                <span className="flex items-center">
-                                                    <Calendar className="w-3 h-3 mr-1" />
-                                                    {new Date(chapter.publishAt).toLocaleDateString()}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {chapter.externalUrl ? (
-                                        <a
-                                            href={chapter.externalUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="px-4 py-2 bg-blue-600/20 text-blue-300 hover:bg-blue-600 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center"
-                                        >
-                                            Read External <ExternalLink className="w-3 h-3 ml-2" />
-                                        </a>
-                                    ) : (
-                                        <Link
-                                            href={`/read/${chapter.id}?sourceId=${chapter.sourceId || sourceId}&mangaId=${manga.id}&title=${encodeURIComponent(manga.title)}&chapterTitle=${encodeURIComponent(chapter.title)}&cover=${encodeURIComponent(manga.cover)}`}
-                                            className="px-6 py-2 bg-white/10 text-white hover:bg-purple-600 rounded-lg text-sm font-medium transition-colors"
-                                        >
-                                            Read
-                                        </Link>
-                                    )}
-                                </div>
-                            ))
-                        ) : (
-                            <div className="p-8 text-center text-gray-500">
-                                No chapters found.
+                    <MangaChapterList
+                        chapters={chapters}
+                        manga={manga}
+                        sourceId={sourceId || 'mangadex'}
+                        headerExtras={
+                            <div className="flex items-center gap-4">
+                                <p className="text-sm text-gray-400 hidden md:block">
+                                    Issues? Try another source:
+                                </p>
+                                <SourceSwitcher currentSource={sourceId || 'mangadex'} mangaTitle={manga.title} />
                             </div>
-                        )}
-                    </div>
+                        }
+                    />
                 </div>
             </div>
         </main>

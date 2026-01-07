@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         try {
             await signInWithPopup(auth, googleProvider);
-            router.push('/');
+            router.push('/profile?mode=setup');
         } catch (error) {
             console.error("Error signing in with Google", error);
             throw error;
@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!isFirebaseConfigured || !auth) return;
         try {
             await signInWithEmailAndPassword(auth, email, pass);
-            router.push('/');
+            router.push('/profile?mode=setup');
         } catch (error) {
             console.error("Error signing in with Email", error);
             throw error;
@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!isFirebaseConfigured || !auth) return;
         try {
             await createUserWithEmailAndPassword(auth, email, pass);
-            router.push('/');
+            router.push('/profile?mode=setup');
         } catch (error) {
             console.error("Error signing up with Email", error);
             throw error;

@@ -6,17 +6,18 @@ import Link from 'next/link';
 import { Search } from 'lucide-react';
 
 interface PageProps {
-    searchParams: {
+    searchParams: Promise<{
         q?: string;
         sourceId?: string;
         autoselect?: string;
-    }
+    }>;
 }
 
 export default async function SearchPage({ searchParams }: PageProps) {
-    const query = searchParams.q || '';
-    const sourceId = searchParams.sourceId;
-    const autoselect = searchParams.autoselect;
+    const resolvedSearchParams = await searchParams;
+    const query = resolvedSearchParams.q || '';
+    const sourceId = resolvedSearchParams.sourceId;
+    const autoselect = resolvedSearchParams.autoselect;
     const results = query ? await ScraperEngine.search(query, sourceId) : [];
 
     // Handle "Smart Switch" / Autoselect

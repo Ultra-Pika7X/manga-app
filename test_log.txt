@@ -1,0 +1,29 @@
+--- Testing WeebDex Source with Puppeteer ---
+Starting test...
+
+1. Searching for "One Piece"...
+Found 12 results.
+First result:
+{
+  "id": "fde5xpvel2/the-food-diary-of-miss-maid",
+  "title": "The Food Diary of Miss Maid",
+  "cover": "https://srv.notdelta.xyz/covers/fde5xpvel2/u8m3ftfkep.256.webp",
+  "sourceId": "weebdex",
+  "status": "Unknown"
+}
+
+2. Fetching details for ID: fde5xpvel2/the-food-diary-of-miss-maid...
+Manga Details:
+{
+  "title": "WeebDex",
+  "chaptersCount": 21,
+  "firstChapter": {
+    "id": "/chapter/48itec2faw",
+    "title": "Vol. 2 Ch. 19",
+    "chapter": "0",
+    "sourceId": "weebdex"
+  }
+}
+
+3. Fetching images for Chapter: /chapter/48itec2faw...
+Found 0 images.

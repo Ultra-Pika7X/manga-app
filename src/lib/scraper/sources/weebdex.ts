@@ -1,120 +1,160 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
+import puppeteer from 'puppeteer';
 import { MangaSource, Manga, MangaDetails, Chapter } from '../types';
 
 const BASE_URL = 'https://weebdex.org';
+
+const getBrowser = async () => {
+    return await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+    });
+};
 
 export const WeebDexSource: MangaSource = {
     id: 'weebdex',
     name: 'WeebDex',
 
     async search(query: string): Promise<Manga[]> {
+        const browser = await getBrowser();
         try {
-            const formattedQuery = encodeURIComponent(query);
-            const url = `${BASE_URL}/search?q=${formattedQuery}`;
+            const page = await browser.newPage();
+            // Use the correct search URL pattern
+            await page.goto(`${BASE_URL}/search?q=${encodeURIComponent(query)}`, { waitUntil: 'networkidle2' });
 
-            const { data } = await axios.get(url);
-            const $ = cheerio.load(data);
+            const results = await page.evaluate((baseUrl) => {
+                const items: Manga[] = [];
+                // Selectors based on generic observation, may need refinement
+                // Selecting containers that look like Grid Items
+                // Adjust selectors based on inspection of rendered page
+                const elements = document.querySelectorAll('.grid > div, a[href^="/title/"]');
 
-            const results: Manga[] = [];
+                elements.forEach((el) => {
+                    const anchor = el.tagName === 'A' ? el as HTMLAnchorElement : el.querySelector('a');
+                    const img = el.querySelector('img');
+                    const titleEl = el.querySelector('h3, h2, .title, span.font-bold'); // Guessing title classes
 
-            // Generic selectors based on typical scraping patterns for WeebDex
-            // Adjust these selectors based on actual site structure if needed
-            $('.grid-cols-2 > div, .search-result').each((_, element) => {
-                const titleElement = $(element).find('h3, .title');
-                const imgElement = $(element).find('img');
-                const linkElement = $(element).find('a').first();
+                    if (anchor && img) {
+                        const href = anchor.getAttribute('href');
+                        const id = href ? href.split('/').slice(-2).join('/') : ''; // /title/UUID/SLUG -> UUID/SLUG or just UUID? 
+                        // Let's assume ID is the full relative path part after /title/ for now to be safe
 
-                const title = titleElement.text().trim();
-                const link = linkElement.attr('href');
-                let cover = imgElement.attr('src') || '';
+                        const title = titleEl ? titleEl.textContent?.trim() : '';
+                        let cover = img.getAttribute('src') || '';
 
-                if (cover && !cover.startsWith('http')) {
-                    cover = cover.startsWith('//') ? `https:${cover}` : `${BASE_URL}${cover}`;
-                }
+                        // Fix relative URLs
+                        if (cover && !cover.startsWith('http')) {
+                            cover = cover.startsWith('//') ? `https:${cover}` : `${baseUrl}${cover}`;
+                        }
 
-                const id = link ? link.split('/').pop() || '' : '';
-
-                if (id && title) {
-                    results.push({
-                        id,
-                        title,
-                        cover,
-                        sourceId: 'weebdex',
-                        status: 'Unknown'
-                    });
-                }
-            });
+                        if (id && title) {
+                            items.push({
+                                id: href?.replace('/title/', '') || '',
+                                title: title || 'Unknown',
+                                cover,
+                                sourceId: 'weebdex',
+                                status: 'Unknown'
+                            });
+                        }
+                    }
+                });
+                return items;
+            }, BASE_URL);
 
             return results;
         } catch (error: any) {
             console.error(`[WeebDex] Search error for "${query}":`, error.message);
             return [];
+        } finally {
+            await browser.close();
         }
     },
 
     async getMangaDetails(id: string): Promise<MangaDetails | null> {
+        const browser = await getBrowser();
         try {
-            const url = `${BASE_URL}/title/${id}`; // Guessing URL structure: /title/id or /manga/id
-            const { data } = await axios.get(url);
-            const $ = cheerio.load(data);
+            const page = await browser.newPage();
+            await page.goto(`${BASE_URL}/title/${id}`, { waitUntil: 'networkidle2' });
 
-            const title = $('h1').text().trim();
-            const cover = $('img.cover, .poster img').attr('src') || '';
-            const description = $('.description, .synopsis').text().trim();
-            const author = $('.author, .artist').text().trim();
-            const status = $('.status').text().trim();
+            // Wait for key elements to render
+            try {
+                await page.waitForSelector('h1', { timeout: 5000 });
+            } catch (e) {
+                // Continue if timeout, might be loaded anyway
+            }
 
-            const manga: Manga = {
-                id,
-                title,
-                cover,
-                description,
-                author,
-                status,
-                sourceId: 'weebdex'
-            };
+            const data = await page.evaluate((baseUrl) => {
+                const title = document.querySelector('h1')?.textContent?.trim() || '';
+                const cover = document.querySelector('img.cover, div[class*="poster"] img, img[alt="' + title + '"]')?.getAttribute('src') || '';
+                const description = document.querySelector('.description, div[class*="description"]')?.textContent?.trim() || '';
+                const author = document.querySelector('.author, div[class*="author"]')?.textContent?.trim() || '';
+                const status = document.querySelector('.status, div[class*="status"]')?.textContent?.trim() || '';
 
-            const chapters: Chapter[] = [];
-            $('.chapter-list a, .chapters a').each((_, element) => {
-                const title = $(element).text().trim();
-                const href = $(element).attr('href');
-                const chapterId = href || '';
+                // Chapters
+                const chapterElements = document.querySelectorAll('a[href*="/chapter/"]');
+                const chapters: any[] = [];
 
-                if (chapterId) {
-                    chapters.push({
-                        id: chapterId,
+                chapterElements.forEach((el) => {
+                    const href = el.getAttribute('href');
+                    const text = el.textContent?.trim() || '';
+                    if (href) {
+                        const chapterMatch = text.match(/Chapter\s+([\d.]+)/i);
+                        const chapterNum = chapterMatch ? chapterMatch[1] : '0';
+
+                        chapters.push({
+                            id: href,
+                            title: text,
+                            chapter: chapterNum,
+                            sourceId: 'weebdex'
+                        });
+                    }
+                });
+
+                return {
+                    manga: {
+                        id: '', // Filled outside
                         title,
-                        chapter: title.match(/Chapter\s+([\d.]+)/)?.[1] || '',
+                        cover: cover.startsWith('http') ? cover : (cover.startsWith('//') ? `https:${cover}` : `${baseUrl}${cover}`),
+                        description,
+                        author,
+                        status,
                         sourceId: 'weebdex'
-                    });
-                }
-            });
+                    },
+                    chapters
+                };
+            }, BASE_URL);
 
-            return { manga, chapters };
+            if (!data.manga.title) return null;
 
+            data.manga.id = id;
+
+            return data;
         } catch (error: any) {
             console.error(`[WeebDex] Details error for ${id}:`, error.message);
             return null;
+        } finally {
+            await browser.close();
         }
     },
 
     async getChapterImages(chapterId: string): Promise<string[]> {
+        const browser = await getBrowser();
         try {
             const url = chapterId.startsWith('http') ? chapterId : `${BASE_URL}${chapterId}`;
-            const { data } = await axios.get(url);
-            const $ = cheerio.load(data);
+            const page = await browser.newPage();
+            await page.goto(url, { waitUntil: 'networkidle2' });
 
-            const images: string[] = [];
-            $('img.chapter-image, .reader img').each((_, element) => {
-                const src = $(element).attr('src');
-                if (src) images.push(src);
+            const images = await page.evaluate(() => {
+                const imgs = document.querySelectorAll('img.chapter-image, div[class*="reader"] img');
+                return Array.from(imgs).map(img => img.getAttribute('src') || '').filter(src => src);
             });
 
             return images;
         } catch (error: any) {
             console.error(`[WeebDex] Images error for ${chapterId}:`, error.message);
             return [];
+        } finally {
+            await browser.close();
         }
     }
 };
