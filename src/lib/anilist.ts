@@ -369,11 +369,22 @@ export async function getViewer(token: string): Promise<AniListUser | null> {
             },
             body: JSON.stringify({ query })
         });
+
+        if (response.status === 401) {
+            throw new Error('UNAUTHORIZED');
+        }
+
         const data = await response.json();
         if (data.errors) return null;
         return data.data.Viewer;
-    } catch (e) {
-        return null;
+    } catch (e: any) {
+        if (e.message === 'UNAUTHORIZED') throw e;
+        console.error('AniList getViewer Failed:', e);
+        // Return null for other errors (network etc) but do not throw
+        // ACTUALLY: we want to throw so context knows it failed.
+        // But if we return null, context thinks "invalid".
+        // Let's THROW for everything, and handle in Context.
+        throw e;
     }
 }
 

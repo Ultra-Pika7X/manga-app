@@ -70,23 +70,15 @@ export const AniListProvider = ({ children }: { children: React.ReactNode }) => 
                 const viewer = await AniListAPI.getViewer(stored);
                 if (viewer) {
                     setUser(viewer);
-                } else {
-                    // Only logout if explicit auth failure, NOT on network error
-                    // getViewer returns null on error. We need to distinguish or just be permissive.
-                    // For now, if viewer is null, it usually means token is invalid OR network failed.
-                    // To be safe against offline disconnects, we should verify IF it was a network error.
-                    // Since getViewer swallows errors, we might assume invalid token if null.
-                    // IMPROVEMENT: Trust local token if network is offline?
-                    if (navigator.onLine) {
-                        console.warn('[AniList] Token invalid or expired, logging out.');
-                        await logout();
-                    } else {
-                        console.warn('[AniList] Offline, keeping token.');
-                    }
                 }
-            } catch (e) {
-                console.error('[AniList] Failed to verify token:', e);
-                // Do not logout on error
+            } catch (e: any) {
+                if (e.message === 'UNAUTHORIZED') {
+                    console.warn('[AniList] Token expired (401), logging out.');
+                    await logout();
+                } else {
+                    console.warn('[AniList] Token verification failed (Network/Other), maintaining session.', e);
+                    // Keep token, assumes offline or temporary error
+                }
             }
         }
         setLoading(false);

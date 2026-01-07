@@ -49,15 +49,15 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AuthProvider>
-          <AuthGuard>
-            <AniListProvider>
+          <AniListProvider>
+            <AuthGuard>
               <DownloadSafetyProvider>
                 <AutoDownloader />
                 <GlobalDownloadManager />
                 {children}
               </DownloadSafetyProvider>
-            </AniListProvider>
-          </AuthGuard>
+            </AuthGuard>
+          </AniListProvider>
         </AuthProvider>
       </body>
     </html>
