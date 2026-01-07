@@ -166,13 +166,6 @@ export const MangakakalotSource: MangaSource = {
                 return [];
             }
 
-            // 2. Validate DOM (Text Density / Bad Keywords)
-            const domValidation = validateDom($);
-            if (!domValidation.isValid) {
-                console.warn(`[Mangakakalot] Page rejected by DOM validator: ${domValidation.reason}`);
-                return [];
-            }
-
             const images: string[] = [];
             const seenUrls = new Set<string>();
 
