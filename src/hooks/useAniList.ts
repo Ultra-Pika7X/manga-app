@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as AniListAPI from '@/lib/anilist';
 import { findBestMatch } from '@/lib/similarity';
-import { db, isFirebaseConfigured, auth } from '@/lib/firebase';
+import { db, auth, isFirebaseConfigured } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { encryptToken, decryptToken } from '@/lib/encryption';
 
 const CLIENT_ID = '34177';
 const STORAGE_KEY = 'anilist_token';
 const MAPPING_KEY_PREFIX = 'anilist_mapping_';
+// Note: We still use localStorage as a "fast cache" but the source of truth is now Firestore
 
 export function useAniList() {
     const [token, setToken] = useState<string | null>(null);
@@ -17,9 +19,31 @@ export function useAniList() {
     const [userList, setUserList] = useState<Map<number, any>>(new Map());
     const [isSyncEnabled, setIsSyncEnabled] = useState(true);
 
-    // --- Token Validation & Auto-Logout ---
+    // --- Token Logic ---
     const checkToken = useCallback(async () => {
-        const stored = localStorage.getItem(STORAGE_KEY);
+        let stored = localStorage.getItem(STORAGE_KEY);
+        const currentUser = auth?.currentUser;
+
+        // If no local token, try pulling from encrypted Firestore
+        if (!stored && currentUser) {
+            try {
+                const docRef = doc(db, 'users', currentUser.uid, 'integrations', 'anilist');
+                const snapshot = await getDoc(docRef);
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    if (data.token && data.iv) {
+                        const decrypted = await decryptToken(currentUser.uid, data.token, data.iv);
+                        if (decrypted) {
+                            stored = decrypted;
+                            localStorage.setItem(STORAGE_KEY, decrypted);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('[AniList] Firestore token fetch failed:', e);
+            }
+        }
+
         if (stored) {
             setToken(stored);
             try {
@@ -27,14 +51,10 @@ export function useAniList() {
                 if (viewer) {
                     setUser(viewer);
                 } else {
-                    // Token invalid or expired → Logout
-                    console.warn('[AniList] Token invalid/expired. Logging out.');
                     logout();
                 }
             } catch (e) {
-                // Network error (AniList down) → Keep token, set user null temporarily
-                console.error('[AniList] Failed to verify token (network?):', e);
-                // Don't logout on network error - token may still be valid
+                console.error('[AniList] Failed to verify token:', e);
                 setUser(null);
             }
         }
@@ -42,7 +62,11 @@ export function useAniList() {
     }, []);
 
     useEffect(() => {
-        checkToken();
+        // We wait for auth to be ready if firebase is enabled
+        const unsubscribe = auth.onAuthStateChanged(() => {
+            checkToken();
+        });
+        return () => unsubscribe();
     }, [checkToken]);
 
     const login = () => {
@@ -50,14 +74,23 @@ export function useAniList() {
         window.location.href = url;
     };
 
-    const logout = () => {
+    const logout = async () => {
         localStorage.removeItem(STORAGE_KEY);
         setToken(null);
         setUser(null);
         setUserList(new Map());
+
+        const currentUser = auth?.currentUser;
+        if (currentUser && db) {
+            try {
+                // We keep the mapping cache, but clear the token
+                const docRef = doc(db, 'users', currentUser.uid, 'integrations', 'anilist');
+                await setDoc(docRef, { token: null, iv: null }, { merge: true });
+            } catch { }
+        }
     };
 
-    const handleCallback = () => {
+    const handleCallback = async () => {
         const hash = window.location.hash;
         if (hash && hash.includes('access_token')) {
             const params = new URLSearchParams(hash.substring(1));
@@ -65,6 +98,24 @@ export function useAniList() {
             if (accessToken) {
                 localStorage.setItem(STORAGE_KEY, accessToken);
                 setToken(accessToken);
+
+                // Encrypt and save to Firestore
+                const currentUser = auth?.currentUser;
+                if (currentUser && db) {
+                    try {
+                        const { encrypted, iv } = await encryptToken(currentUser.uid, accessToken);
+                        const docRef = doc(db, 'users', currentUser.uid, 'integrations', 'anilist');
+                        await setDoc(docRef, {
+                            token: encrypted,
+                            iv,
+                            updatedAt: Date.now(),
+                            service: 'anilist'
+                        }, { merge: true });
+                    } catch (e) {
+                        console.error('[AniList] Failed to sync token to Cloud:', e);
+                    }
+                }
+
                 window.history.replaceState(null, '', window.location.pathname);
                 checkToken();
             }
@@ -84,45 +135,10 @@ export function useAniList() {
     const saveMapping = async (mangaId: string, mediaId: number) => {
         try {
             localStorage.setItem(MAPPING_KEY_PREFIX + mangaId, mediaId.toString());
-
-            const currentUser = auth?.currentUser;
-            if (isFirebaseConfigured && db && currentUser) {
-                const docRef = doc(db, 'users', currentUser.uid, 'integrations', 'anilist');
-                await setDoc(docRef, { mappings: { [mangaId]: mediaId } }, { merge: true });
-            }
         } catch (e) {
             console.error('[AniList] Failed to save mapping:', e);
         }
     };
-
-    // --- Load Remote Mappings ---
-    useEffect(() => {
-        const loadRemoteMappings = async () => {
-            const currentUser = auth?.currentUser;
-            if (!isFirebaseConfigured || !db || !currentUser) return;
-
-            try {
-                const docRef = doc(db, 'users', currentUser.uid, 'integrations', 'anilist');
-                const snapshot = await getDoc(docRef);
-
-                if (snapshot.exists()) {
-                    const data = snapshot.data();
-                    const remoteMappings = data.mappings || {};
-
-                    Object.entries(remoteMappings).forEach(([mangaId, mediaId]) => {
-                        const localVal = getMapping(mangaId);
-                        if (!localVal || localVal !== mediaId) {
-                            localStorage.setItem(MAPPING_KEY_PREFIX + mangaId, String(mediaId));
-                        }
-                    });
-                }
-            } catch (err) {
-                console.error("[AniList] Failed to load remote mappings:", err);
-            }
-        };
-
-        loadRemoteMappings();
-    }, [user]);
 
     // --- Sync Progress (Fire-and-Forget with Resilience) ---
     const syncProgress = async (mangaId: string, title: string, chapterNumber: number) => {
@@ -239,6 +255,14 @@ export function useAniList() {
         } catch { }
     };
 
+    const getEntriesByStatus = (status: string) => {
+        return Array.from(userList.values()).filter(entry => entry.status === status);
+    };
+
+    const getReadingEntries = () => {
+        return getEntriesByStatus('CURRENT');
+    };
+
     return {
         token,
         user,
@@ -250,6 +274,8 @@ export function useAniList() {
         importProgress,
         overrideMapping,
         getEntry,
+        getEntriesByStatus,
+        getReadingEntries,
         refreshList,
         isSyncEnabled,
         toggleSync,

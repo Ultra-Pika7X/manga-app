@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Calendar, ExternalLink, Download, CheckCircle2 } from 'lucide-react';
+import { Calendar, ExternalLink, Download, CheckCircle2, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Chapter, Manga } from '@/lib/scraper/types';
 import DownloadMenu from './DownloadMenu';
 import BulkDownloadDialog from './BulkDownloadDialog';
 import { useDownload } from '@/hooks/useDownload';
 import { DownloadStatus } from '@/lib/downloadManager';
+import { useAniList } from '@/hooks/useAniList';
 
 interface MangaChapterListProps {
     chapters: Chapter[];
@@ -19,20 +20,39 @@ interface MangaChapterListProps {
 export default function MangaChapterList({ chapters, manga, sourceId, headerExtras }: MangaChapterListProps) {
     const [isBulkOpen, setIsBulkOpen] = useState(false);
     const { getDownload } = useDownload();
+    const { getEntry } = useAniList();
 
-    // Sort chapters relative to reading order (descending by default usually)
-    // But Bulk Download usually assumes 1->N.
-    // Let's pass the raw list to BulkDownloadDialog and let it handle sorting/selection.
+    const alEntry = getEntry(manga.id);
+    const alProgress = alEntry?.progress || 0;
+    const alTotalRows = alEntry?.media?.chapters || 0;
+
+    const parseChapterNum = (title: string) => {
+        const match = title.match(/(\d+(\.\d+)?)/);
+        return match ? parseFloat(match[1]) : 0;
+    };
+
+    // Calculate if source is lagging
+    const sortedChapters = [...chapters].sort((a, b) => parseChapterNum(b.title) - parseChapterNum(a.title));
+    const latestSourceChapter = sortedChapters.length > 0 ? parseChapterNum(sortedChapters[0].title) : 0;
+    const isLagging = alTotalRows > 0 && latestSourceChapter < alTotalRows;
 
     return (
         <>
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold flex items-center mb-4 md:mb-0">
-                    <span className="w-1 h-6 bg-purple-500 rounded-full mr-3" />
-                    Chapters
-                </h2>
+                <div className="flex flex-col">
+                    <h2 className="text-2xl font-bold flex items-center">
+                        <span className="w-1 h-6 bg-purple-500 rounded-full mr-3" />
+                        Chapters
+                    </h2>
+                    {isLagging && (
+                        <p className="text-xs text-yellow-500 font-bold flex items-center mt-1 animate-pulse">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Source may be lagging (AniList reports {alTotalRows} chapters)
+                        </p>
+                    )}
+                </div>
 
-                <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4 mt-4 md:mt-0">
                     {headerExtras}
 
                     {chapters.length > 0 && (
@@ -46,6 +66,14 @@ export default function MangaChapterList({ chapters, manga, sourceId, headerExtr
                     )}
                 </div>
             </div>
+
+            {/* Read Status Summary */}
+            {alProgress > 0 && (
+                <div className="mb-4 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center gap-3 text-xs">
+                    <CheckCircle className="w-4 h-4 text-blue-400" />
+                    <span className="text-blue-300 font-medium">You've read up to Chapter {alProgress} on AniList</span>
+                </div>
+            )}
 
             <div className="glass rounded-xl overflow-hidden divide-y divide-white/10">
                 {chapters.length > 0 ? (
@@ -91,23 +119,12 @@ export default function MangaChapterList({ chapters, manga, sourceId, headerExtr
                                         />
                                     </div>
 
-                                    {chapter.externalUrl ? (
-                                        <a
-                                            href={chapter.externalUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="px-4 py-2 bg-blue-600/20 text-blue-300 hover:bg-blue-600 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center"
-                                        >
-                                            External <ExternalLink className="w-3 h-3 ml-2" />
-                                        </a>
-                                    ) : (
-                                        <Link
-                                            href={`/read/${chapter.id}?sourceId=${chapter.sourceId || sourceId}&mangaId=${manga.id}&title=${encodeURIComponent(manga.title)}&chapterTitle=${encodeURIComponent(chapter.title)}&cover=${encodeURIComponent(manga.cover)}`}
-                                            className="px-6 py-2 bg-white/10 text-white hover:bg-purple-600 rounded-lg text-sm font-medium transition-colors"
-                                        >
-                                            Read
-                                        </Link>
-                                    )}
+                                    <Link
+                                        href={`/read/${chapter.id}?sourceId=${chapter.sourceId || sourceId}&mangaId=${manga.id}&chapterTitle=${encodeURIComponent(chapter.title)}`}
+                                        className="px-6 py-2 bg-white/10 text-white hover:bg-purple-600 rounded-lg text-sm font-medium transition-colors"
+                                    >
+                                        Read
+                                    </Link>
                                 </div>
                             </div>
                         );

@@ -5,6 +5,8 @@ import { Download, AlertTriangle, X, HardDrive, Check, Loader } from 'lucide-rea
 import { useDownloadSafety } from '@/components/DownloadSafetyProvider';
 import { DownloadManager } from '@/lib/downloadManager';
 
+import { useAniList } from '@/hooks/useAniList';
+
 interface Chapter {
     id: string;
     title: string;
@@ -34,32 +36,39 @@ export default function BulkDownloadDialog({
     chapters
 }: Props) {
     const { checkStorageBeforeDownload } = useDownloadSafety();
+    const { getEntry, token } = useAniList();
     const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set());
     const [isDownloading, setIsDownloading] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0, chapter: '' });
     const [result, setResult] = useState<{ queued: number; skipped: number; estimatedSizeMB: number } | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    if (!isOpen) return null;
+    const alEntry = getEntry(mangaId);
+    const alProgress = alEntry?.progress || 0;
 
-    // Calculate estimates
-    const selectedCount = selectedChapters.size;
-    const selectedList = chapters.filter(ch => selectedChapters.has(ch.id));
-    const totalPages = selectedList.reduce((sum, ch) => sum + (ch.estimatedPages || AVG_PAGES_PER_CHAPTER), 0);
-    const estimatedSizeMB = (totalPages * AVG_PAGE_SIZE_KB) / 1024;
-    const isLargeDownload = estimatedSizeMB > 500;
-
-    const toggleChapter = (id: string) => {
-        const next = new Set(selectedChapters);
-        if (next.has(id)) {
-            next.delete(id);
-        } else {
-            next.add(id);
-        }
-        setSelectedChapters(next);
+    const parseChapterNum = (title: string) => {
+        const match = title.match(/(\d+(\.\d+)?)/);
+        return match ? parseFloat(match[1]) : 0;
     };
 
-    const selectAll = () => {
+    if (!isOpen) return null;
+
+    // Actions
+    const selectNextUnread = () => {
+        // Sort chapters 1 -> N (ascending)
+        const sorted = [...chapters].sort((a, b) => parseChapterNum(a.title) - parseChapterNum(b.title));
+        const next = sorted.find(c => parseChapterNum(c.title) > alProgress);
+        if (next) {
+            setSelectedChapters(new Set([next.id]));
+        }
+    };
+
+    const selectAllUnread = () => {
+        const unread = chapters.filter(c => parseChapterNum(c.title) > alProgress).map(c => c.id);
+        setSelectedChapters(new Set(unread));
+    };
+
+    const selectEntireManga = () => {
         setSelectedChapters(new Set(chapters.map(ch => ch.id)));
     };
 
@@ -72,10 +81,28 @@ export default function BulkDownloadDialog({
         setSelectedChapters(new Set([...selectedChapters, ...range]));
     };
 
+    // Calculate estimates
+    const selectedCount = selectedChapters.size;
+    const selectedList = chapters.filter(ch => selectedChapters.has(ch.id));
+    const totalPages = selectedList.reduce((sum, ch) => sum + (ch.estimatedPages || AVG_PAGES_PER_CHAPTER), 0);
+    const estimatedSizeMBValue = (totalPages * AVG_PAGE_SIZE_KB) / 1024;
+    const estimatedSizeMB = estimatedSizeMBValue.toFixed(0);
+    const isLargeDownload = estimatedSizeMBValue > 500;
+
+    const toggleChapter = (id: string) => {
+        const next = new Set(selectedChapters);
+        if (next.has(id)) {
+            next.delete(id);
+        } else {
+            next.add(id);
+        }
+        setSelectedChapters(next);
+    };
+
     const handleDownload = async () => {
         if (selectedCount === 0) return;
 
-        const canProceed = await checkStorageBeforeDownload(estimatedSizeMB);
+        const canProceed = await checkStorageBeforeDownload(estimatedSizeMBValue);
         if (!canProceed) return;
 
         setIsDownloading(true);
@@ -125,16 +152,34 @@ export default function BulkDownloadDialog({
                 </div>
 
                 {/* Selection Controls */}
-                <div className="px-6 py-3 border-b border-white/5 flex items-center justify-between bg-white/5">
-                    <div className="flex gap-2">
-                        <button onClick={selectAll} className="px-3 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition">
-                            Select All ({chapters.length})
+                <div className="px-6 py-3 border-b border-white/5 flex items-center justify-between bg-white/5 overflow-x-auto gap-2">
+                    <div className="flex gap-2 shrink-0">
+                        <button
+                            onClick={selectNextUnread}
+                            className="px-3 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition whitespace-nowrap"
+                        >
+                            Next Unread
                         </button>
-                        <button onClick={deselectAll} className="px-3 py-1 text-xs bg-white/10 text-gray-300 rounded-lg hover:bg-white/20 transition">
+                        <button
+                            onClick={selectAllUnread}
+                            className="px-3 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition whitespace-nowrap"
+                        >
+                            Unread
+                        </button>
+                        <button
+                            onClick={selectEntireManga}
+                            className="px-3 py-1 text-xs bg-white/10 text-gray-300 rounded-lg hover:bg-white/20 transition whitespace-nowrap"
+                        >
+                            All ({chapters.length})
+                        </button>
+                        <button
+                            onClick={deselectAll}
+                            className="px-3 py-1 text-xs bg-white/10 text-gray-300 rounded-lg hover:bg-white/20 transition"
+                        >
                             Clear
                         </button>
                     </div>
-                    <div className="text-sm text-gray-400">
+                    <div className="text-sm text-gray-400 shrink-0">
                         {selectedCount} selected
                     </div>
                 </div>
@@ -172,7 +217,7 @@ export default function BulkDownloadDialog({
                                 <span>Estimated size</span>
                             </div>
                             <span className={`text-sm font-medium ${isLargeDownload ? 'text-yellow-400' : 'text-white'}`}>
-                                ~{estimatedSizeMB.toFixed(0)} MB
+                                ~{estimatedSizeMBValue.toFixed(0)} MB
                             </span>
                         </div>
 

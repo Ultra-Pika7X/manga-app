@@ -5,7 +5,8 @@ export interface Manga {
     description?: string;
     author?: string;
     status?: string;
-    sourceId: string; // "mangadex", "mangakakalot", etc.
+    sourceId: string; // "mangakakalot", "mangabuddy", etc.
+    altTitles?: string;
 }
 
 export interface Chapter {
@@ -24,8 +25,8 @@ export interface MangaDetails {
 }
 
 export interface MangaSource {
-    id: string; // e.g. "mangadex"
-    name: string; // e.g. "MangaDex"
+    id: string; // e.g. "mangakakalot"
+    name: string; // e.g. "Mangakakalot"
 
     search(query: string): Promise<Manga[]>;
     getMangaDetails(mangaId: string): Promise<MangaDetails | null>;

@@ -1,79 +1,86 @@
 import Navbar from '@/components/Navbar';
 import BannerCarousel from '@/components/BannerCarousel';
-import MangaCard from '@/components/MangaCard';
+import MangaRow from '@/components/MangaRow';
 import ContinueReading from '@/components/ContinueReading';
-import { ScraperEngine } from '@/lib/scraper';
+import { browseManga, getRecommendations, convertAniListToManga } from '@/lib/anilist';
+import { getVerifiedUpdates } from './actions';
+
+function getCurrentSeason() {
+  const month = new Date().getMonth();
+  if (month >= 2 && month <= 4) return 'SPRING';
+  if (month >= 5 && month <= 7) return 'SUMMER';
+  if (month >= 8 && month <= 10) return 'FALL';
+  return 'WINTER';
+}
 
 export default async function Home() {
-  // Fetch data on the server
-  // Define a larger list of popular manga for the banner (approx 10-12)
-  const bannerQueries = [
-    'chainsaw man',
-    'one piece',
-    'jujutsu kaisen',
-    'spy x family',
-    'blue lock',
-    'my hero academia',
-    'berserk',
-    'vinland saga',
-    'vagabond',
-    'dandadan',
-    'sakamoto days',
-    'kaiju no 8'
-  ];
+  const season = getCurrentSeason();
+  const year = new Date().getFullYear();
 
-  // Fetch all queries in parallel using MangaDex for reliable cover images
-  const bannerResults = await Promise.all(
-    bannerQueries.map(q => ScraperEngine.search(q, 'mangadex'))
-  );
+  // Fetch all rows in parallel
+  const [trendingRes, popularRes, seasonRes, updatedManga, topRatedRes, recRes] = await Promise.all([
+    browseManga({ sort: ['TRENDING_DESC'], perPage: 10 }),
+    browseManga({ sort: ['POPULARITY_DESC'], perPage: 15 }),
+    browseManga({ season, seasonYear: year, sort: ['POPULARITY_DESC'], perPage: 10 }),
+    getVerifiedUpdates(),
+    browseManga({ sort: ['SCORE_DESC'], perPage: 10 }),
+    getRecommendations(1, 10)
+  ]);
 
-  // Flatten and take the first valid result from each search
-  const bannerManga = bannerResults
-    .map(res => res[0])
-    .filter(Boolean)
-    .slice(0, 10); // Ensure we have exactly 10 or close to it
-
-  // Reuse some for the "Popular Now" grid if needed, or fetch distinct ones
-  // For now, let's show the same ones in the grid plus maybe a few others if we had more sources
-  const gridManga = bannerManga;
+  const trendingManga = trendingRes.media.map(convertAniListToManga);
+  const popularManga = popularRes.media.map(convertAniListToManga);
+  const seasonManga = seasonRes.media.map(convertAniListToManga);
+  // updatedManga is already converted by the action
+  const topRatedManga = topRatedRes.media.map(convertAniListToManga);
+  const recManga = recRes.map(convertAniListToManga);
 
   return (
     <main className="min-h-screen bg-cloudy pb-20">
       <Navbar />
 
-      <BannerCarousel mangaList={bannerManga} />
+      <BannerCarousel mangaList={trendingManga.slice(0, 5)} />
 
       <ContinueReading />
 
-      <section className="max-w-7xl mx-auto px-6 mt-12">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-white relative pl-4">
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-purple-500 rounded-full" />
-            Popular Now
-          </h2>
-          <a href="/popular" className="text-sm text-purple-300 hover:text-white transition-colors">View All</a>
-        </div>
+      <MangaRow
+        title="Trending Now"
+        mangaList={trendingManga}
+        viewAllLink="/browse?sort=TRENDING_DESC"
+        color="purple"
+      />
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          {gridManga.map((manga) => (
-            <MangaCard key={manga.id} manga={manga} />
-          ))}
-        </div>
-      </section>
+      <MangaRow
+        title="Popular This Season"
+        mangaList={seasonManga}
+        viewAllLink={`/browse?sort=POPULARITY_DESC&season=${season}&year=${year}`}
+        color="green"
+      />
 
-      <section className="max-w-7xl mx-auto px-6 mt-12 mb-12">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-white relative pl-4">
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-500 rounded-full" />
-            Latest Updates
-          </h2>
-          <a href="/latest" className="text-sm text-blue-300 hover:text-white transition-colors">View All</a>
-        </div>
-        <div className="p-10 text-center glass rounded-xl">
-          <p className="text-gray-400">Latest updates feed coming soon...</p>
-        </div>
-      </section>
+      <MangaRow
+        title="Recommended for You"
+        mangaList={recManga}
+        viewAllLink="/browse"
+        color="orange"
+      />
+
+      <MangaRow
+        title="Recently Updated"
+        mangaList={updatedManga}
+        viewAllLink="/browse?sort=UPDATED_AT_DESC"
+        color="blue"
+      />
+
+      <MangaRow
+        title="Top Rated"
+        mangaList={topRatedManga}
+        viewAllLink="/browse?sort=SCORE_DESC"
+        color="pink"
+      />
+
+      {/* Spacer for bottom nav if mobile */}
+      <div className="h-12 md:h-0" />
     </main>
   );
 }
+
 

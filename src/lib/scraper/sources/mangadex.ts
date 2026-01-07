@@ -1,27 +1,8 @@
 import axios from 'axios';
 import { MangaSource, Manga, MangaDetails, Chapter } from '../types';
 
-const BASE_URL = 'https://api.mangadex.org';
-const UPLOADS_URL = 'https://uploads.mangadex.org';
-
-const fetchWithRetry = async (url: string, options: any = {}, retries = 3, delay = 1000): Promise<any> => {
-    try {
-        const config = {
-            ...options,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                ...options.headers,
-            }
-        };
-        return await axios.get(url, config);
-    } catch (error: any) {
-        if (retries > 0 && (error.code === 'ECONNRESET' || error.response?.status === 429 || error.response?.status >= 500)) {
-            await new Promise(res => setTimeout(res, delay));
-            return fetchWithRetry(url, options, retries - 1, delay * 2);
-        }
-        throw error;
-    }
-};
+const API_BASE = 'https://api.mangadex.org';
+const CDN_BASE = 'https://uploads.mangadex.org';
 
 export const MangaDexSource: MangaSource = {
     id: 'mangadex',
@@ -29,107 +10,90 @@ export const MangaDexSource: MangaSource = {
 
     async search(query: string): Promise<Manga[]> {
         try {
-            const params = new URLSearchParams();
-            params.append('title', query);
-            params.append('limit', '20');
-            params.append('order[relevance]', 'desc');
-            params.append('availableTranslatedLanguage[]', 'en');
-            params.append('includes[]', 'cover_art');
-            params.append('includes[]', 'author');
-            params.append('contentRating[]', 'safe');
-            params.append('contentRating[]', 'suggestive');
+            const resp = await axios.get(`${API_BASE}/manga`, {
+                params: {
+                    title: query,
+                    limit: 20,
+                    'includes[]': 'cover_art',
+                    'contentRating[]': ['safe', 'suggestive', 'erotica']
+                }
+            });
 
-            const { data } = await fetchWithRetry(`${BASE_URL}/manga`, { params });
-
-            return data.data.map((manga: any) => {
-                const title = Object.values(manga.attributes.title)[0] as string;
-                const description = manga.attributes.description?.en || Object.values(manga.attributes.description)[0] || '';
-                const coverRel = manga.relationships.find((r: any) => r.type === 'cover_art');
+            return resp.data.data.map((item: any) => {
+                const coverRel = item.relationships.find((r: any) => r.type === 'cover_art');
                 const coverFileName = coverRel?.attributes?.fileName;
                 const cover = coverFileName
-                    ? `${UPLOADS_URL}/covers/${manga.id}/${coverFileName}`
-                    : 'https://via.placeholder.com/150';
+                    ? `${CDN_BASE}/covers/${item.id}/${coverFileName}.256.jpg`
+                    : '';
 
                 return {
-                    id: manga.id,
-                    title,
+                    id: item.id,
+                    title: item.attributes.title.en || Object.values(item.attributes.title)[0] || 'Unknown',
                     cover,
-                    description,
-                    status: manga.attributes.status,
-                    sourceId: 'mangadex'
+                    sourceId: 'mangadex',
+                    status: item.attributes.status
                 };
             });
         } catch (error: any) {
-            console.error(`[MangaDex] Search error for "${query}":`, error.message);
+            console.error('[MangaDex] Search error:', error.message);
             return [];
         }
     },
 
     async getMangaDetails(id: string): Promise<MangaDetails | null> {
         try {
-            const params = new URLSearchParams();
-            params.append('includes[]', 'cover_art');
-            params.append('includes[]', 'author');
+            const [mangaResp, chaptersResp] = await Promise.all([
+                axios.get(`${API_BASE}/manga/${id}`, {
+                    params: { 'includes[]': ['cover_art', 'author'] }
+                }),
+                axios.get(`${API_BASE}/manga/${id}/feed`, {
+                    params: {
+                        limit: 500,
+                        'translatedLanguage[]': ['en'],
+                        'order[chapter]': 'desc',
+                        'contentRating[]': ['safe', 'suggestive', 'erotica']
+                    }
+                })
+            ]);
 
-            const mangaRes = await fetchWithRetry(`${BASE_URL}/manga/${id}`, { params });
-            const mangaData = mangaRes.data.data;
-
-            const title = Object.values(mangaData.attributes.title)[0] as string;
-            const description = mangaData.attributes.description?.en || '';
-            const coverRel = mangaData.relationships.find((r: any) => r.type === 'cover_art');
-            const coverFileName = coverRel?.attributes?.fileName;
-            const cover = coverFileName
-                ? `${UPLOADS_URL}/covers/${id}/${coverFileName}`
-                : 'https://via.placeholder.com/150';
+            const item = mangaResp.data.data;
+            const coverRel = item.relationships.find((r: any) => r.type === 'cover_art');
+            const authorRel = item.relationships.find((r: any) => r.type === 'author');
 
             const manga: Manga = {
-                id: mangaData.id,
-                title,
-                cover,
-                description,
-                status: mangaData.attributes.status,
+                id: item.id,
+                title: item.attributes.title.en || Object.values(item.attributes.title)[0] || 'Unknown',
+                cover: coverRel?.attributes?.fileName ? `${CDN_BASE}/covers/${item.id}/${coverRel.attributes.fileName}` : '',
+                description: item.attributes.description.en || '',
+                author: authorRel?.attributes?.name || 'Unknown',
+                status: item.attributes.status,
                 sourceId: 'mangadex'
             };
 
-            const feedParams = new URLSearchParams();
-            feedParams.append('translatedLanguage[]', 'en');
-            feedParams.append('order[chapter]', 'desc');
-            feedParams.append('limit', '500');
-
-            const feedRes = await fetchWithRetry(`${BASE_URL}/manga/${id}/feed`, { params: feedParams });
-
-            const chapters: Chapter[] = feedRes.data.data.map((ch: any) => ({
+            const chapters: Chapter[] = chaptersResp.data.data.map((ch: any) => ({
                 id: ch.id,
-                title: ch.attributes.title || `Chapter ${ch.attributes.chapter}`,
+                title: ch.attributes.title ? `Ch. ${ch.attributes.chapter}: ${ch.attributes.title}` : `Chapter ${ch.attributes.chapter}`,
                 chapter: ch.attributes.chapter,
-                volume: ch.attributes.volume,
-                publishAt: ch.attributes.publishAt,
-                externalUrl: ch.attributes.externalUrl,
+                publishAt: new Date(ch.attributes.publishAt).toLocaleDateString(),
                 sourceId: 'mangadex'
             }));
 
             return { manga, chapters };
         } catch (error: any) {
-            console.error(`[MangaDex] Details error for ${id}:`, error.message);
+            console.error('[MangaDex] Details error:', error.message);
             return null;
         }
     },
 
     async getChapterImages(chapterId: string): Promise<string[]> {
         try {
-            const { data } = await fetchWithRetry(`${BASE_URL}/at-home/server/${chapterId}`);
+            const resp = await axios.get(`${API_BASE}/at-home/server/${chapterId}`);
+            const { baseUrl, chapter } = resp.data;
+            const { hash, data } = chapter;
 
-            if (!data.baseUrl || !data.chapter || !data.chapter.hash || !data.chapter.data) {
-                return [];
-            }
-
-            const baseUrl = data.baseUrl;
-            const hash = data.chapter.hash;
-            const files = data.chapter.data;
-
-            return files.map((file: string) => `${baseUrl}/data/${hash}/${file}`);
+            return data.map((filename: string) => `${baseUrl}/data/${hash}/${filename}`);
         } catch (error: any) {
-            console.error(`[MangaDex] Chapter images error for ${chapterId}:`, error.message);
+            console.error('[MangaDex] Images error:', error.message);
             return [];
         }
     }

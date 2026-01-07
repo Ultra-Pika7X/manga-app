@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
 import AutoDownloader from '@/components/AutoDownloader';
+import GlobalDownloadManager from '@/components/GlobalDownloadManager';
 import { DownloadSafetyProvider } from '@/components/DownloadSafetyProvider';
 
 const geistSans = Geist({
@@ -50,6 +51,7 @@ export default function RootLayout({
           <AuthGuard>
             <DownloadSafetyProvider>
               <AutoDownloader />
+              <GlobalDownloadManager />
               {children}
             </DownloadSafetyProvider>
           </AuthGuard>

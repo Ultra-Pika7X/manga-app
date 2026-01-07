@@ -81,6 +81,42 @@ export default function DownloadMenu({
         setIsOpen(false);
     };
 
+    const handleExternalExport = async (format: 'zip' | 'cbz') => {
+        vibrate();
+        setIsExporting(true);
+        setExportFormat(format);
+
+        try {
+            const { ExternalDownloader } = await import('@/lib/externalDownloader');
+
+            await ExternalDownloader.downloadChapter(
+                mangaId,
+                chapterId,
+                chapterTitle,
+                {
+                    format,
+                    onProgress: (p, status) => {
+                        console.log(`[ExternalExport] ${p}% - ${status}`);
+                    }
+                }
+            );
+
+            showNotification({
+                type: 'success',
+                title: 'Export Complete',
+                message: `${chapterTitle} saved as ${format.toUpperCase()}`,
+                duration: 3000
+            });
+        } catch (e: any) {
+            console.error('External export failed:', e);
+            alert('Export failed: ' + (e.message || 'Unknown error'));
+        } finally {
+            setIsExporting(false);
+            setExportFormat(null);
+            setIsOpen(false);
+        }
+    };
+
     const handleExport = async (format: 'zip' | 'cbz') => {
         if (!isDownloaded) return;
 
@@ -103,8 +139,9 @@ export default function DownloadMenu({
             });
 
             // Build filename
-            const safeTitle = mangaTitle.replace(/[<>:"/\\|?*]/g, '_');
-            const safeChapter = chapterTitle.replace(/[<>:"/\\|?*]/g, '_');
+            const sanitize = (str: string) => str.replace(/[<>:"/\\|?*]/g, '_').trim().slice(0, 100);
+            const safeTitle = sanitize(mangaTitle);
+            const safeChapter = sanitize(chapterTitle);
             const filename = `${safeTitle} - ${safeChapter}.${format}`;
 
             // Use File System Access API (shows native Save As dialog on Chrome/Edge)
@@ -189,24 +226,6 @@ export default function DownloadMenu({
                 <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Progress Bar (shown when downloading) */}
-            {isDownloading && (
-                <div className="absolute top-full mt-2 right-0 w-48 bg-black/90 rounded-lg p-3 border border-white/10">
-                    <div className="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>Downloading...</span>
-                        <span>{progress}%</span>
-                    </div>
-                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
-                            style={{ width: `${progress}%` }}
-                        />
-                    </div>
-                    <div className="text-[10px] text-gray-500 mt-1">
-                        {currentDownload?.downloadedImages || 0} / {currentDownload?.totalImages || '?'} pages
-                    </div>
-                </div>
-            )}
 
             {/* Dropdown Menu */}
             {isOpen && !isDownloading && (
@@ -307,7 +326,31 @@ export default function DownloadMenu({
                         </>
                     )}
 
-                    {/* Already downloaded indicator */}
+                    {/* External Export Options */}
+                    {!isDownloaded && (
+                        <div className="border-t border-white/5 bg-white/5 py-1">
+                            <button
+                                onClick={() => handleExternalExport('cbz')}
+                                disabled={isExporting}
+                                className="w-full px-4 py-2 flex items-center gap-3 hover:bg-white/10 transition-colors text-left disabled:opacity-50"
+                            >
+                                <div className="w-6 h-6 rounded bg-green-500/20 flex items-center justify-center">
+                                    {isExporting && exportFormat === 'cbz' ? <Loader className="w-3 h-3 text-green-400 animate-spin" /> : <FileArchive className="w-3 h-3 text-green-400" />}
+                                </div>
+                                <span className="text-xs text-gray-300">Export as CBZ</span>
+                            </button>
+                            <button
+                                onClick={() => handleExternalExport('zip')}
+                                disabled={isExporting}
+                                className="w-full px-4 py-2 flex items-center gap-3 hover:bg-white/10 transition-colors text-left disabled:opacity-50"
+                            >
+                                <div className="w-6 h-6 rounded bg-blue-500/20 flex items-center justify-center">
+                                    {isExporting && exportFormat === 'zip' ? <Loader className="w-3 h-3 text-blue-400 animate-spin" /> : <FileArchive className="w-3 h-3 text-blue-400" />}
+                                </div>
+                                <span className="text-xs text-gray-300">Export as ZIP</span>
+                            </button>
+                        </div>
+                    )}
                     {isDownloaded && (
                         <div className="px-4 py-2 bg-green-500/10 border-t border-white/5">
                             <div className="flex items-center gap-2 text-xs text-green-400">

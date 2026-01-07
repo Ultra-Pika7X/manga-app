@@ -60,8 +60,15 @@ export function useDownload() {
 
     const getSettings = () => DownloadManager.settings;
 
+    const activeDownloads = downloads.filter(d =>
+        d.status === DownloadStatus.Pending ||
+        d.status === DownloadStatus.FetchingMeta ||
+        d.status === DownloadStatus.Downloading
+    );
+
     return {
         downloads,
+        activeDownloads,
         queueDownload,
         pauseDownload,
         resumeDownload,

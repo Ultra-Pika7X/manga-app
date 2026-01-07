@@ -1,160 +1,166 @@
-import puppeteer from 'puppeteer';
+import * as cheerio from 'cheerio';
 import { MangaSource, Manga, MangaDetails, Chapter } from '../types';
+import { fetchPage, filterChapterImages, isFakeChapter, sanitizeUrl } from '../utils';
 
-const BASE_URL = 'https://weebdex.org';
-
-const getBrowser = async () => {
-    return await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-    });
-};
+const BASE_URL = 'https://mangapark.to';
 
 export const WeebDexSource: MangaSource = {
     id: 'weebdex',
-    name: 'WeebDex',
+    name: 'MangaPark',
 
     async search(query: string): Promise<Manga[]> {
-        const browser = await getBrowser();
         try {
-            const page = await browser.newPage();
-            // Use the correct search URL pattern
-            await page.goto(`${BASE_URL}/search?q=${encodeURIComponent(query)}`, { waitUntil: 'networkidle2' });
+            // New Search URL: /search?q=query
+            const url = `${BASE_URL}/search?q=${encodeURIComponent(query)}`;
+            const data = await fetchPage(url);
+            const $ = cheerio.load(data);
 
-            const results = await page.evaluate((baseUrl) => {
-                const items: Manga[] = [];
-                // Selectors based on generic observation, may need refinement
-                // Selecting containers that look like Grid Items
-                // Adjust selectors based on inspection of rendered page
-                const elements = document.querySelectorAll('.grid > div, a[href^="/title/"]');
+            const results: Manga[] = [];
 
-                elements.forEach((el) => {
-                    const anchor = el.tagName === 'A' ? el as HTMLAnchorElement : el.querySelector('a');
-                    const img = el.querySelector('img');
-                    const titleEl = el.querySelector('h3, h2, .title, span.font-bold'); // Guessing title classes
+            // MangaPark V5 Selectors
+            // We search for links starting with /title/
+            $('a[href^="/title/"]').each((_, element) => {
+                const link = $(element).attr('href');
+                const title = $(element).text().trim();
+                const parent = $(element).closest('.group, .item'); // approximate container
+                const cover = parent.find('img').attr('src') || parent.find('img').attr('data-src') || '';
 
-                    if (anchor && img) {
-                        const href = anchor.getAttribute('href');
-                        const id = href ? href.split('/').slice(-2).join('/') : ''; // /title/UUID/SLUG -> UUID/SLUG or just UUID? 
-                        // Let's assume ID is the full relative path part after /title/ for now to be safe
+                if (link && title && link.split('/').length > 2) {
+                    const fullId = link; // Use full path /title/ID
 
-                        const title = titleEl ? titleEl.textContent?.trim() : '';
-                        let cover = img.getAttribute('src') || '';
-
-                        // Fix relative URLs
-                        if (cover && !cover.startsWith('http')) {
-                            cover = cover.startsWith('//') ? `https:${cover}` : `${baseUrl}${cover}`;
-                        }
-
-                        if (id && title) {
-                            items.push({
-                                id: href?.replace('/title/', '') || '',
-                                title: title || 'Unknown',
-                                cover,
-                                sourceId: 'weebdex',
-                                status: 'Unknown'
-                            });
-                        }
+                    // Dedupe
+                    if (!results.some(r => r.title === title) && !results.some(r => r.id === fullId)) {
+                        results.push({
+                            id: fullId,
+                            title,
+                            cover: sanitizeUrl(cover, BASE_URL) || '',
+                            sourceId: 'weebdex',
+                            status: 'Unknown'
+                        });
                     }
-                });
-                return items;
-            }, BASE_URL);
+                }
+            });
 
             return results;
         } catch (error: any) {
-            console.error(`[WeebDex] Search error for "${query}":`, error.message);
+            console.error('[MangaPark] Search error:', error.message);
             return [];
-        } finally {
-            await browser.close();
         }
     },
 
     async getMangaDetails(id: string): Promise<MangaDetails | null> {
-        const browser = await getBrowser();
         try {
-            const page = await browser.newPage();
-            await page.goto(`${BASE_URL}/title/${id}`, { waitUntil: 'networkidle2' });
+            // id is likely /title/...
+            const url = id.startsWith('http') ? id : `${BASE_URL}${id.startsWith('/') ? '' : '/'}${id}`;
+            const data = await fetchPage(url);
+            const $ = cheerio.load(data);
 
-            // Wait for key elements to render
-            try {
-                await page.waitForSelector('h1', { timeout: 5000 });
-            } catch (e) {
-                // Continue if timeout, might be loaded anyway
-            }
+            const title = $('h3 a, h3').first().text().trim() || $('title').text().replace(' - Share Any Manga on MangaPark', '').trim();
+            const cover = $('img[alt="cover"], .attr-cover img').attr('src') || '';
+            const description = $('.limit-height, .summary').text().trim();
+            const author = $('.attr-item:contains("Author") a').text().trim() || 'Unknown';
+            const status = $('.attr-item:contains("Status")').text().replace('Status:', '').trim() || 'Unknown';
 
-            const data = await page.evaluate((baseUrl) => {
-                const title = document.querySelector('h1')?.textContent?.trim() || '';
-                const cover = document.querySelector('img.cover, div[class*="poster"] img, img[alt="' + title + '"]')?.getAttribute('src') || '';
-                const description = document.querySelector('.description, div[class*="description"]')?.textContent?.trim() || '';
-                const author = document.querySelector('.author, div[class*="author"]')?.textContent?.trim() || '';
-                const status = document.querySelector('.status, div[class*="status"]')?.textContent?.trim() || '';
+            const chapters: Chapter[] = [];
+            // Chapter list generic links
+            $('a[href*="/chapter"]').each((_, element) => {
+                const href = $(element).attr('href');
+                const titleText = $(element).text().trim();
 
-                // Chapters
-                const chapterElements = document.querySelectorAll('a[href*="/chapter/"]');
-                const chapters: any[] = [];
+                // Clean up title
+                const title = titleText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
 
-                chapterElements.forEach((el) => {
-                    const href = el.getAttribute('href');
-                    const text = el.textContent?.trim() || '';
-                    if (href) {
-                        const chapterMatch = text.match(/Chapter\s+([\d.]+)/i);
-                        const chapterNum = chapterMatch ? chapterMatch[1] : '0';
+                if (href && !isFakeChapter(title)) {
+                    // Check if it's a "History" or "last read" link (ignore)
+                    if (href.includes('history')) return;
 
-                        chapters.push({
-                            id: href,
-                            title: text,
-                            chapter: chapterNum,
-                            sourceId: 'weebdex'
-                        });
-                    }
-                });
+                    // Determine publish time (often in a sibling span)
+                    const time = $(element).siblings('span, i').text().trim() || 'Unknown';
 
-                return {
-                    manga: {
-                        id: '', // Filled outside
+                    chapters.push({
+                        id: href,
                         title,
-                        cover: cover.startsWith('http') ? cover : (cover.startsWith('//') ? `https:${cover}` : `${baseUrl}${cover}`),
-                        description,
-                        author,
-                        status,
+                        chapter: title.match(/Chapter\s+([\d.]+)/i)?.[1] || title.match(/ch\.([\d.]+)/i)?.[1] || '',
+                        publishAt: time,
                         sourceId: 'weebdex'
-                    },
-                    chapters
-                };
-            }, BASE_URL);
+                    });
+                }
+            });
 
-            if (!data.manga.title) return null;
+            // Deduplicate chapters based on ID
+            const uniqueChapters = Array.from(new Map(chapters.map(c => [c.id, c])).values());
 
-            data.manga.id = id;
-
-            return data;
+            return {
+                manga: {
+                    id,
+                    title,
+                    cover: sanitizeUrl(cover, BASE_URL) || '',
+                    description,
+                    author,
+                    status,
+                    sourceId: 'weebdex'
+                },
+                chapters: uniqueChapters
+            };
         } catch (error: any) {
-            console.error(`[WeebDex] Details error for ${id}:`, error.message);
+            console.error('[MangaPark] Details error:', error.message);
             return null;
-        } finally {
-            await browser.close();
         }
     },
 
     async getChapterImages(chapterId: string): Promise<string[]> {
-        const browser = await getBrowser();
         try {
-            const url = chapterId.startsWith('http') ? chapterId : `${BASE_URL}${chapterId}`;
-            const page = await browser.newPage();
-            await page.goto(url, { waitUntil: 'networkidle2' });
+            const url = chapterId.startsWith('http') ? chapterId : `${BASE_URL}${chapterId.startsWith('/') ? '' : '/'}${chapterId}`;
+            const data = await fetchPage(url);
+            const $ = cheerio.load(data);
 
-            const images = await page.evaluate(() => {
-                const imgs = document.querySelectorAll('img.chapter-image, div[class*="reader"] img');
-                return Array.from(imgs).map(img => img.getAttribute('src') || '').filter(src => src);
-            });
+            const images: string[] = [];
+            const seen = new Set<string>();
 
-            return images;
+            // Strategy 1: Regex Scan for Image URLs in Scripts
+            // MangaPark often embeds images in JSON or encoded strings in scripts.
+            // We look for patterns like https://... .jpg
+            const scripts = $('script').map((i, el) => $(el).html()).get();
+            for (const script of scripts) {
+                if (!script) continue;
+
+                // Look for arrays of strings or just raw URLs
+                // Regex to find https://...jpg/png/webp
+                // Note: MangaPark images often come from distinct CDNs
+                const matches = script.matchAll(/(https?:\/\/[^"'\s]+\.(?:jpg|png|webp|jpeg))/gi);
+                for (const match of matches) {
+                    const src = match[1];
+                    // Filter useless assets
+                    if (src.includes('avatar') || src.includes('logo') || src.includes('icon') || src.includes('thumb')) continue;
+
+                    const clean = sanitizeUrl(src, BASE_URL);
+                    if (clean && !seen.has(clean)) {
+                        // Double check it looks like a comic page (often has digits or 'comic' in path)
+                        // Heuristic: keep it loose for now as failure fallback is handled elsewhere
+                        images.push(clean);
+                        seen.add(clean);
+                    }
+                }
+            }
+
+            // Strategy 2: DOM fallback (if they switch to server rendering)
+            if (images.length === 0) {
+                $('img').each((_, el) => {
+                    const src = $(el).attr('src') || $(el).attr('data-src');
+                    const clean = sanitizeUrl(src, BASE_URL);
+                    if (clean && !seen.has(clean)) {
+                        if (!clean.includes('avatar') && !clean.includes('logo') && !clean.includes('icon')) {
+                            images.push(clean);
+                            seen.add(clean);
+                        }
+                    }
+                });
+            }
+
+            return filterChapterImages(images);
         } catch (error: any) {
-            console.error(`[WeebDex] Images error for ${chapterId}:`, error.message);
+            console.error('[MangaPark] Images error:', error.message);
             return [];
-        } finally {
-            await browser.close();
         }
     }
 };

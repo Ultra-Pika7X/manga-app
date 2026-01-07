@@ -139,7 +139,7 @@ class HybridStorageService {
         // For simple key-values, localStorage is fine, but for "Hybrid" design, let's sync.
 
         const stored = localStorage.getItem('user_prefs');
-        return stored ? JSON.parse(stored) : { preferredSource: 'mangadex', autoNext: true, autoSync: true };
+        return stored ? JSON.parse(stored) : { preferredSource: 'mangakakalot', autoNext: true, autoSync: true };
     }
 
     async savePreferences(prefs: UserPreferences) {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Search, Library, User, LogOut } from 'lucide-react';
+import { Search, Library, User, LogOut, Menu } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const { user, logout } = useAuth();
     const router = useRouter();
@@ -29,9 +30,7 @@ export default function Navbar() {
     // Available sources
     const sources = [
         { id: 'all', name: 'All Sources' },
-        { id: 'mangadex', name: 'MangaDex' },
         { id: 'mangabuddy', name: 'MangaBuddy' },
-        { id: 'mangapark', name: 'MangaPark' },
         { id: 'weebdex', name: 'WeebDex' },
         { id: 'mangakakalot', name: 'Mangakakalot' },
     ];
@@ -53,13 +52,16 @@ export default function Navbar() {
                     MangaCloud
                 </Link>
 
+                {/* Desktop Nav */}
                 <div className="hidden md:flex items-center space-x-8">
                     <Link href="/" className="text-gray-300 hover:text-white transition-colors">Home</Link>
-                    <Link href="/latest" className="text-gray-300 hover:text-white transition-colors">Latest</Link>
-                    <Link href="/popular" className="text-gray-300 hover:text-white transition-colors">Popular</Link>
+                    <Link href="/browse?sort=TRENDING_DESC" className="text-gray-300 hover:text-white transition-colors">Trending</Link>
+                    <Link href="/browse?sort=POPULARITY_DESC" className="text-gray-300 hover:text-white transition-colors">Popular</Link>
+                    <Link href="/browse" className="text-gray-300 hover:text-white transition-colors">Browse</Link>
                 </div>
 
                 <div className="flex items-center space-x-4">
+                    {/* ... Search & User ... */}
                     <form onSubmit={handleSearch} className={`flex items-center bg-white/10 rounded-full px-2 py-1 transition-all ${isOpen ? 'w-full md:w-96' : 'w-10 overflow-hidden'}`}>
                         {isOpen && (
                             <select
@@ -140,8 +142,26 @@ export default function Navbar() {
                             Login
                         </Link>
                     )}
+
+                    {/* Mobile Menu Button */}
+                    <button
+                        className="md:hidden p-2 text-gray-300"
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    >
+                        <Menu className="w-6 h-6" />
+                    </button>
                 </div>
             </div>
+
+            {/* Mobile Menu Overlay */}
+            {isMobileMenuOpen && (
+                <div className="absolute top-full left-0 w-full bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-white/10 p-4 flex flex-col space-y-4 md:hidden animate-in slide-in-from-top-2">
+                    <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="px-4 py-2 hover:bg-white/5 rounded-lg text-gray-300">Home</Link>
+                    <Link href="/browse?sort=TRENDING_DESC" onClick={() => setIsMobileMenuOpen(false)} className="px-4 py-2 hover:bg-white/5 rounded-lg text-gray-300">Trending</Link>
+                    <Link href="/browse?sort=POPULARITY_DESC" onClick={() => setIsMobileMenuOpen(false)} className="px-4 py-2 hover:bg-white/5 rounded-lg text-purple-400 font-medium">Popular</Link>
+                    <Link href="/browse" onClick={() => setIsMobileMenuOpen(false)} className="px-4 py-2 hover:bg-white/5 rounded-lg text-gray-300">Browse All</Link>
+                </div>
+            )}
         </nav>
     );
 }

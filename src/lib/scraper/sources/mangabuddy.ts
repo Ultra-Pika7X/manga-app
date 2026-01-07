@@ -1,6 +1,8 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { MangaSource, Manga, MangaDetails, Chapter } from '../types';
+import { filterChapterImages, isFakeChapter, fetchPage, sanitizeUrl } from '../utils';
+
 
 const BASE_URL = 'https://mangabuddy.com';
 
@@ -13,11 +15,7 @@ export const MangaBuddySource: MangaSource = {
             const formattedQuery = query.toLowerCase().replace(/ /g, '-');
             const url = `${BASE_URL}/search?q=${formattedQuery}`;
 
-            const { data } = await axios.get(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                }
-            });
+            const data = await fetchPage(url);
             const $ = cheerio.load(data);
 
             const results: Manga[] = [];
@@ -33,10 +31,11 @@ export const MangaBuddySource: MangaSource = {
 
                 // Ensure cover is absolute URL
                 if (cover && !cover.startsWith('http')) {
-                    cover = cover.startsWith('//') ? `https:${cover}` : `${BASE_URL}${cover}`;
+                    cover = cover.startsWith('//') ? `https:${cover}` : `${BASE_URL}${cover.startsWith('/') ? '' : '/'}${cover}`;
                 }
 
-                const id = link ? link.split('/').pop() || '' : '';
+                // IMPROVED: Use full relative path as ID to preserve prefixes like /manga/
+                const id = link || '';
 
                 if (id && title) {
                     results.push({
@@ -58,33 +57,30 @@ export const MangaBuddySource: MangaSource = {
 
     async getMangaDetails(id: string): Promise<MangaDetails | null> {
         try {
-            const url = `${BASE_URL}/${id}`;
-            const { data } = await axios.get(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                }
-            });
+            // IMPROVED: Robust URL construction handling both full paths and just slugs
+            const url = id.startsWith('http') ? id : `${BASE_URL}${id.startsWith('/') ? '' : '/'}${id}`;
+            const data = await fetchPage(url);
             const $ = cheerio.load(data);
 
-            // Selectors for details
-            const title = $('.detail-info h1').text().trim();
-            let cover = $('.detail-info .img-cover img').attr('data-src') || $('.detail-info .img-cover img').attr('src') || '';
-            if (cover && !cover.startsWith('http')) {
-                cover = cover.startsWith('//') ? `https:${cover}` : `${BASE_URL}${cover}`;
-            }
+            const title = $('.book-info h1').text().trim() || $('h1').first().text().trim();
+            const altTitles = $('.book-info h2').text().trim() || $('h2').first().text().trim();
+            const cover = $('.book-info .img-cover img').attr('src') || $('.book-info img').first().attr('src') || '';
+            const description = $('.summary-content').text().trim() || $('.description').text().trim();
 
-            const description = $('.summary .content').text().trim();
-            const author = $('.detail-info .authors a').map((_, el) => $(el).text()).get().join(', ');
-            const status = $('.detail-info .status').text().replace('Status :', '').trim();
+            // Authors and Status are often in specific divs or p tags
+            const author = $('.book-info p:contains("Authors") a').text().trim() || $('.book-info .author').text().replace('Authors:', '').trim() || 'Unknown';
+            const status = $('.book-info p:contains("Status") a').text().trim() || $('.book-info .status').text().replace('Status:', '').trim() || 'Unknown';
 
             const manga: Manga = {
                 id,
                 title,
-                cover,
+                cover: sanitizeUrl(cover, BASE_URL) || '',
                 description,
                 author,
                 status,
-                sourceId: 'mangabuddy'
+                sourceId: 'mangabuddy',
+                // @ts-ignore - added for internal scoring/logic
+                altTitles
             };
 
             const chapters: Chapter[] = [];
@@ -99,7 +95,7 @@ export const MangaBuddySource: MangaSource = {
                 // Replace slashes with a safe delimiter that we can decode later
                 const chapterId = href ? encodeURIComponent(href) : '';
 
-                if (chapterId) {
+                if (chapterId && !isFakeChapter(title)) {
                     chapters.push({
                         id: chapterId, // URL-encoded path
                         title,
@@ -120,34 +116,70 @@ export const MangaBuddySource: MangaSource = {
 
     async getChapterImages(chapterId: string): Promise<string[]> {
         try {
-            // chapterId is URL-encoded, decode it first
+            // chapterId is URL-encoded
             const decodedChapterId = decodeURIComponent(chapterId);
-            const url = decodedChapterId.startsWith('http') ? decodedChapterId : `${BASE_URL}${decodedChapterId}`;
+            // IMPROVED: Safer URL construction
+            const url = decodedChapterId.startsWith('http') ? decodedChapterId : `${BASE_URL}${decodedChapterId.startsWith('/') ? '' : '/'}${decodedChapterId}`;
 
-            const { data } = await axios.get(url, {
+            const data = await fetchPage(url, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    'Referer': BASE_URL,
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
                 }
             });
             const $ = cheerio.load(data);
 
             const images: string[] = [];
+            const seenUrls = new Set<string>();
 
-            // This selector is tricky on MangaBuddy, sometimes images are lazy loaded or in a script
-            // Common selector: #reader-area img
-            $('#reader-area img').each((_, element) => {
-                let src = $(element).attr('data-src') || $(element).attr('src');
-                if (src) {
-                    if (!src.startsWith('http')) {
-                        src = src.startsWith('//') ? `https:${src}` : `${BASE_URL}${src}`;
+            // Selectors
+            const selector = '#chapter-video-frame, .chapter-content, #reader-area, .chapter-images, .vung-doc';
+
+
+            $(selector).find('img').each((_, element) => {
+                const $img = $(element);
+                let src = $img.attr('data-src') || $img.attr('src') || $img.attr('data-lazy-src');
+
+                const cleanUrl = sanitizeUrl(src, BASE_URL);
+
+                if (cleanUrl && !seenUrls.has(cleanUrl) && !cleanUrl.includes('ads') && !cleanUrl.includes('banner')) {
+                    const clean = filterChapterImages([cleanUrl]);
+                    if (clean.length > 0) {
+                        images.push(cleanUrl);
+                        seenUrls.add(cleanUrl);
                     }
-                    images.push(src);
                 }
             });
 
+
+            // Fallback: ChapImages JS (Refined)
+            if (images.length === 0) {
+                $('script').each((_, el) => {
+                    const script = $(el).html();
+                    if (script && (script.includes('chapImages') || script.includes('lstImages'))) {
+                        const match = script.match(/chapImages\s*=\s*['"]([^'"]+)['"]/i) ||
+                            script.match(/lstImages\s*=\s*\[([^\]]+)\]/i);
+
+                        if (match && match[1]) {
+                            const rawImages = script.includes('lstImages') ?
+                                match[1].split(',').map(u => u.replace(/['"\s]/g, '')) :
+                                match[1].split(',');
+
+                            rawImages.forEach(u => {
+                                const cleanUrl = sanitizeUrl(u, BASE_URL);
+                                if (cleanUrl && !seenUrls.has(cleanUrl)) {
+                                    images.push(cleanUrl);
+                                    seenUrls.add(cleanUrl);
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+
             return images;
         } catch (error: any) {
-            console.error(`[MangaBuddy] Images error for ${chapterId}:`, error.message);
+            console.error(`[MangaBuddy] Images error:`, error.message);
             return [];
         }
     }

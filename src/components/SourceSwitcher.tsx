@@ -11,7 +11,6 @@ interface SourceSwitcherProps {
 
 const sources = [
     { id: 'mangabuddy', name: 'MangaBuddy' },
-    { id: 'mangadex', name: 'MangaDex' },
     { id: 'weebdex', name: 'WeebDex' },
     { id: 'mangakakalot', name: 'Mangakakalot' },
 ];
@@ -84,6 +83,18 @@ export default function SourceSwitcher({ currentSource, mangaTitle }: SourceSwit
                                 {source.name}
                             </button>
                         ))}
+                    </div>
+                    <div className="px-1 py-1 border-t border-gray-700">
+                        <button
+                            className="text-gray-400 hover:bg-white/10 hover:text-white group flex w-full items-center rounded-lg px-2 py-2 text-xs transition-colors"
+                            onClick={() => {
+                                setIsOpen(false);
+                                // Navigate to search to manually find correct match
+                                router.push(`/search?q=${encodeURIComponent(mangaTitle)}&remap=true`);
+                            }}
+                        >
+                            <span className="flex-1">Wrong Match? Fix it</span>
+                        </button>
                     </div>
                 </div>
             )}

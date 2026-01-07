@@ -669,6 +669,19 @@ class DownloadManagerService {
         return page?.blob;
     }
 
+    /**
+     * Retrieves all stored blobs for a chapter as Object URLs.
+     */
+    async getChapterBlobs(downloadId: string): Promise<string[]> {
+        const db = await this.getDB();
+        const pages = await db.getAllFromIndex('pages', 'by_chapterId', downloadId);
+
+        // Sort by pageIndex to ensure correct order
+        const sortedPages = pages.sort((a, b) => a.pageIndex - b.pageIndex);
+
+        return sortedPages.map(p => URL.createObjectURL(p.blob));
+    }
+
     subscribe(listener: (downloads: ChapterDownload[]) => void) {
         this.listeners.push(listener);
         this.getAllDownloads().then(listener);

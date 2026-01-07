@@ -9,17 +9,17 @@ import { useHistory } from '@/hooks/useHistory';
 import { useDownload } from '@/hooks/useDownload';
 import { useAniList } from '@/hooks/useAniList';
 import { getProxyUrl } from '@/lib/utils';
+import { getChapterImagesAutoAction } from '@/app/actions';
 import { DownloadStatus } from '@/lib/downloadManager';
 
-interface ReaderControlsProps {
-    images: string[];
-    chapterId: string;
-    mangaId: string;
-    mangaTitle: string;
-    chapterTitle: string;
-    cover: string;
-    sourceId: string;
+chapterTitle: string;
+cover: string;
+sourceId: string;
+anilistId: string;
 }
+
+type ReadingMode = 'vertical' | 'paged' | 'double';
+type PageFit = 'contain' | 'cover' | 'width' | 'original';
 
 export default function ReaderControls({
     images,
@@ -28,13 +28,27 @@ export default function ReaderControls({
     mangaTitle,
     chapterTitle,
     cover,
-    sourceId
+    sourceId,
+    anilistId
 }: ReaderControlsProps) {
     const { addToHistory } = useHistory();
     const { syncProgress } = useAniList();
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isLoadingOffline, setIsLoadingOffline] = useState(false);
     const [offlineError, setOfflineError] = useState<string | null>(null);
+
+    // Reading Settings
+    const [readingMode, setReadingMode] = useState<ReadingMode>('vertical');
+    const [pageFit, setPageFit] = useState<PageFit>('width');
+    const [showGap, setShowGap] = useState(true);
+    const [isRTL, setIsRTL] = useState(true); // Default to RTL for manga
+
+    const [imagesLoaded, setImagesLoaded] = useState<boolean[]>([]);
+    const [currentPageIndex, setCurrentPageIndex] = useState(0);
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const imageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
     useEffect(() => {
         addToHistory({
@@ -47,155 +61,146 @@ export default function ReaderControls({
         });
     }, [chapterId, mangaId, sourceId, mangaTitle, chapterTitle, cover]);
 
-    // AniList Sync Logic: Trigger when reaching the end of the chapter
-    const observerTarget = useRef<HTMLDivElement>(null);
+    const [displayImages, setDisplayImages] = useState<string[]>(images);
 
-
-
-    // Page Progress Logic: Track visible page count
-    // Use a separate observer for pages if we want discrete page numbers, OR just scroll position?
-    // "Page-level progress" usually means "Page 5 of 20".
-    // For a long-strip reader, scroll position is more accurate but page index is easier to map.
-    // Let's stick to scroll percentage or approximate page index.
-
-    // We'll save the approx page index to localStorage
-    const savePageProgress = (index: number) => {
-        const key = `progress_${mangaId}_${chapterId}`;
-        localStorage.setItem(key, index.toString());
-    };
-
-    // Restore on mount
     useEffect(() => {
-        const key = `progress_${mangaId}_${chapterId}`;
-        const saved = localStorage.getItem(key);
-        if (saved) {
-            const index = parseInt(saved);
-            // Scroll to that image? 
-            // We need refs for images. 
-            // For now, let's just log it or implement a simple "Scroll to Y" if we had pixel height.
-            // A better way for long-strip: Save window.scrollY?
-            // "Page-level" implies discrete pages. 
-            // Let's just implement saving for now to satisfy the "Rule".
-            // Implementation detail: We will implement scroll restoration in the next turn if needed, 
-            // but the rule is "Page-level progress -> localStorage".
-        }
-    }, [mangaId, chapterId]);
+        setImagesLoaded(new Array(displayImages.length).fill(false));
+    }, [displayImages.length]);
 
-    // Update observer for chapter end
+    // Restore scroll/page on mount
     useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    // Reached bottom - Clear page progress? Or keep it?
-                    // Typically 'Finished' means progress = 100%.
-                    localStorage.removeItem(`progress_${mangaId}_${chapterId}`); // Clean up
-
-                    const match = chapterTitle.match(/(\d+(\.\d+)?)/);
-                    if (match) {
-                        const chapNum = parseFloat(match[1]);
-                        if (!isNaN(chapNum)) {
-                            syncProgress(mangaId, mangaTitle, Math.floor(chapNum));
-                        }
+        if (displayImages.length > 0) {
+            const key = `progress_${mangaId}_${chapterId}`;
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                const index = parseInt(saved);
+                if (!isNaN(index)) {
+                    setCurrentPageIndex(index);
+                    if (readingMode === 'vertical') {
+                        setTimeout(() => {
+                            imageRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 800);
                     }
                 }
-            },
-            { threshold: 0.5 }
-        );
-
-        if (observerTarget.current) {
-            observer.observe(observerTarget.current);
+            }
         }
+    }, [displayImages.length, mangaId, chapterId]);
 
-        return () => observer.disconnect();
-    }, [chapterTitle, mangaId, mangaTitle, syncProgress, chapterId]);
+    // Save Progress
+    const savePageProgress = (index: number) => {
+        setCurrentPageIndex(index);
+        const key = `progress_${mangaId}_${chapterId}`;
+        localStorage.setItem(key, index.toString());
 
-    const [displayImages, setDisplayImages] = useState<string[]>(images);
+        // AniList Sync at 80% progress
+        if (index >= displayImages.length * 0.8) {
+            const match = chapterTitle.match(/(\d+(\.\d+)?)/);
+            if (match) {
+                const chapNum = parseFloat(match[1]);
+                if (!isNaN(chapNum)) {
+                    syncProgress(mangaId, mangaTitle, Math.floor(chapNum));
+                }
+            }
+        }
+    };
+
+    // Keyboard Navigation
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (readingMode === 'vertical') {
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    contentRef.current?.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
+                }
+                return;
+            }
+
+            if (e.key === 'ArrowLeft') {
+                isRTL ? handleNext() : handlePrev();
+            } else if (e.key === 'ArrowRight') {
+                isRTL ? handlePrev() : handleNext();
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                handleNext();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [readingMode, currentPageIndex, displayImages.length, isRTL]);
+
+    const handleNext = () => {
+        const step = readingMode === 'double' ? 2 : 1;
+        if (currentPageIndex + step < displayImages.length) {
+            const nextIdx = currentPageIndex + step;
+            savePageProgress(nextIdx);
+        }
+    };
+
+    const handlePrev = () => {
+        const step = readingMode === 'double' ? 2 : 1;
+        if (currentPageIndex - step >= 0) {
+            const prevIdx = currentPageIndex - step;
+            savePageProgress(prevIdx);
+        }
+    };
 
     // Download integration
     const { getDownload, queueDownload, downloads } = useDownload();
     const downloadId = `${mangaId}_${chapterId}`;
     const currentDownload = getDownload(downloadId);
 
-    // Sync online images if they change (and we aren't using offline blob)
     useEffect(() => {
         if (images && images.length > 0) {
             setDisplayImages(images);
+        } else if (!isLoadingOffline && !offlineError) {
+            const attemptHeal = async () => {
+                setIsLoadingOffline(true);
+                try {
+                    // SILENT FALLBACK: Using the comprehensive backend auto-retry
+                    const result = await getChapterImagesAutoAction(anilistId, mangaTitle, chapterTitle, sourceId);
+                    if (result && result.images.length > 0) {
+                        setDisplayImages(result.images);
+                        // Backend already handles silent source caching via saveLastWorkingSource
+                        console.log(`[Reader] Silent fallback successful on ${result.sourceId}`);
+                    } else {
+                        throw new Error("No alternate sources could provide this chapter.");
+                    }
+                } catch (e: any) {
+                    setOfflineError(e.message || "Failed to load chapter content.");
+                } finally {
+                    setIsLoadingOffline(false);
+                }
+            };
+            attemptHeal();
         }
-    }, [images]);
+    }, [images, chapterTitle, anilistId, mangaTitle, sourceId]);
 
 
-    // Load offline images if available or if online failed
     useEffect(() => {
         const loadOfflineImages = async () => {
-            // Priority:
-            // 1. If download is completed, ALWAYS prefer offline version (faster, saves data)
-            // 2. If online images missing, try to load offline even if not fully "completed" (maybe legacy?)
-
             const isCompleted = currentDownload?.status === DownloadStatus.Completed;
             const isOnlineMissing = !images || images.length === 0;
 
             if (isCompleted || isOnlineMissing) {
                 if (isOnlineMissing) setIsLoadingOffline(true);
-
                 try {
-                    // Check if we truly have a download record
-                    // If we don't have a download record AND online is missing, we can't do anything
-                    if (!currentDownload && isOnlineMissing) {
-                        // Wait a bit? useDownload might be hydrating.
-                        // But downloads dependency should trigger this effect again.
-                        // If downloads list is populated and we still don't find it, it's an error.
-                        if (downloads.length > 0) { // heuristics to know if hydrated
-                            setOfflineError("Chapter not found online or offline.");
-                            setIsLoadingOffline(false);
-                        }
-                        return;
-                    }
-
-                    if (currentDownload) {
-                        const { DownloadManager } = await import('@/lib/downloadManager');
-                        const blobs = [];
-                        // Used stored count, or fallback to something if corrupt? 
-                        const count = currentDownload.totalImages || currentDownload.downloadedImages;
-
-                        if (count === 0 && isOnlineMissing) {
-                            throw new Error("Download seems empty");
-                        }
-
-                        for (let i = 0; i < count; i++) {
-                            const blob = await DownloadManager.getChapterImage(currentDownload.id, i);
-                            if (blob) {
-                                blobs.push(URL.createObjectURL(blob));
-                            }
-                        }
-
-                        if (blobs.length > 0) {
-                            setDisplayImages(blobs);
-                            setOfflineError(null);
-                        } else if (isOnlineMissing) {
-                            throw new Error("No images found in storage");
-                        }
+                    const { DownloadManager } = await import('@/lib/downloadManager');
+                    const blobs = await DownloadManager.getChapterBlobs(downloadId);
+                    if (blobs.length > 0) {
+                        setDisplayImages(blobs);
+                        setOfflineError(null);
                     }
                 } catch (e: any) {
-                    console.error("Failed to load offline images", e);
-                    if (isOnlineMissing) {
-                        setOfflineError(e.message || "Failed to load offline chapter");
-                    }
+                    if (isOnlineMissing) setOfflineError(e.message || "Failed to load offline chapter");
                 } finally {
                     setIsLoadingOffline(false);
                 }
             }
         };
-
         loadOfflineImages();
+    }, [currentDownload?.status, chapterId, images, downloads.length]);
 
-        // Cleanup
-        return () => {
-            // Only revoke if they look like blobs
-            // Note: in a real app check standard URLs vs Blob URLs
-        };
-    }, [currentDownload?.status, chapterId, images, downloads.length]); // Re-run if downloads hydrate
-
-    // Cleanup effect separate to avoid dependency cycles
     useEffect(() => {
         return () => {
             displayImages.forEach(url => {
@@ -206,30 +211,22 @@ export default function ReaderControls({
 
     const [showControls, setShowControls] = useState(true);
     const [theme, setTheme] = useState<'dark' | 'light' | 'cloudy'>('dark');
-    const containerRef = useRef<HTMLDivElement>(null);
     let controlsTimeout: NodeJS.Timeout;
 
-    // Handle fullscreen toggle
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
-            containerRef.current?.requestFullscreen().catch(err => {
-                console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-            });
+            containerRef.current?.requestFullscreen();
         } else {
             document.exitFullscreen();
         }
     };
 
-    // Listen for fullscreen changes
     useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
-        };
+        const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    // Auto-hide controls
     const resetControlsTimeout = () => {
         setShowControls(true);
         clearTimeout(controlsTimeout);
@@ -239,7 +236,7 @@ export default function ReaderControls({
     useEffect(() => {
         window.addEventListener('mousemove', resetControlsTimeout);
         window.addEventListener('touchstart', resetControlsTimeout);
-        resetControlsTimeout(); // Initial start
+        resetControlsTimeout();
         return () => {
             window.removeEventListener('mousemove', resetControlsTimeout);
             window.removeEventListener('touchstart', resetControlsTimeout);
@@ -247,31 +244,21 @@ export default function ReaderControls({
         };
     }, []);
 
-    // Theme styles
     const getBgColor = () => {
         switch (theme) {
             case 'light': return 'bg-gray-100';
-            case 'cloudy': return 'bg-[#1a1a2e]'; // Matches global cloudy
+            case 'cloudy': return 'bg-[#1a1a2e]';
             case 'dark': default: return 'bg-black';
         }
     };
 
-    const handleDownload = async () => {
-        if (currentDownload) {
-            alert(`Download status: ${currentDownload.status} (${currentDownload.progress}%)`);
-            return;
+    const getFitClass = () => {
+        switch (pageFit) {
+            case 'contain': return 'max-h-screen w-auto mx-auto object-contain';
+            case 'cover': return 'w-full h-auto min-h-screen object-cover';
+            case 'original': return 'w-auto h-auto mx-auto object-none';
+            case 'width': default: return 'w-full h-auto';
         }
-
-        queueDownload({
-            id: downloadId,
-            mangaId,
-            chapterId,
-            sourceId,
-            mangaTitle,
-            chapterTitle,
-            cover
-        });
-        alert('Download started! Check the queue.');
     };
 
     if (offlineError && (!displayImages || displayImages.length === 0)) {
@@ -291,7 +278,7 @@ export default function ReaderControls({
         return (
             <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white">
                 <Loader className="w-10 h-10 animate-spin text-purple-500 mb-4" />
-                <p>Checking offline storage...</p>
+                <p>Preparing chapter...</p>
             </div>
         );
     }
@@ -299,7 +286,7 @@ export default function ReaderControls({
     return (
         <div
             ref={containerRef}
-            className={`min-h-screen relative transition-colors duration-300 ${getBgColor()}`}
+            className={`h-screen overflow-hidden flex flex-col transition-colors duration-300 ${getBgColor()}`}
         >
             {/* Top Bar */}
             <AnimatePresence>
@@ -308,26 +295,46 @@ export default function ReaderControls({
                         initial={{ y: -100, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         exit={{ y: -100, opacity: 0 }}
-                        className="fixed top-0 left-0 w-full p-4 z-50 bg-gradient-to-b from-black/80 to-transparent flex justify-between items-center"
+                        className="fixed top-0 left-0 w-full p-4 z-50 bg-gradient-to-b from-black/90 to-transparent flex justify-between items-center"
                     >
-                        <Link href="/" className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-all">
-                            <ArrowLeft className="w-6 h-6" />
-                        </Link>
+                        <div className="flex items-center space-x-4">
+                            <Link href="/" className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-all">
+                                <ArrowLeft className="w-6 h-6" />
+                            </Link>
+                            <div className="flex flex-col">
+                                <h1 className="text-white text-sm font-bold truncate max-w-[200px]">{mangaTitle}</h1>
+                                <p className="text-gray-400 text-xs">{chapterTitle}</p>
+                            </div>
+                        </div>
 
-                        <div className="flex items-center space-x-4 bg-black/50 backdrop-blur-md rounded-full px-6 py-2 border border-white/10">
-                            <span className="text-white text-sm font-medium pr-4 border-r border-white/20">
-                                Chapter {chapterId && chapterId.length > 10 ? chapterId.slice(0, 8) + '...' : chapterId}
-                            </span>
+                        <div className="flex items-center space-x-2 bg-black/50 backdrop-blur-md rounded-full px-4 py-1.5 border border-white/10">
+                            {/* Mode Selectors */}
+                            <select
+                                value={readingMode}
+                                onChange={(e) => setReadingMode(e.target.value as ReadingMode)}
+                                className="bg-transparent text-white text-xs border-none focus:ring-0 cursor-pointer"
+                            >
+                                <option value="vertical" className="bg-gray-900">Vertical</option>
+                                <option value="paged" className="bg-gray-900">Paged</option>
+                                <option value="double" className="bg-gray-900">Double</option>
+                            </select>
 
-                            {/* Theme Toggles */}
-                            <button onClick={() => setTheme('light')} className={`p-1.5 rounded-full ${theme === 'light' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}>
-                                <Sun className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => setTheme('dark')} className={`p-1.5 rounded-full ${theme === 'dark' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}>
-                                <Moon className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => setTheme('cloudy')} className={`p-1.5 rounded-full ${theme === 'cloudy' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}>
-                                <Monitor className="w-4 h-4" />
+                            <select
+                                value={pageFit}
+                                onChange={(e) => setPageFit(e.target.value as PageFit)}
+                                className="bg-transparent text-white text-xs border-none focus:ring-0 cursor-pointer border-l border-white/10 pl-2"
+                            >
+                                <option value="width" className="bg-gray-900">Fit Width</option>
+                                <option value="contain" className="bg-gray-900">Contain</option>
+                                <option value="cover" className="bg-gray-900">Cover</option>
+                                <option value="original" className="bg-gray-900">Original</option>
+                            </select>
+
+                            <button
+                                onClick={() => setIsRTL(!isRTL)}
+                                className={`text-xs px-2 py-1 rounded transition-colors ${isRTL ? 'bg-purple-600 text-white' : 'text-gray-400'}`}
+                            >
+                                {isRTL ? 'RTL' : 'LTR'}
                             </button>
                         </div>
 
@@ -341,67 +348,126 @@ export default function ReaderControls({
                                 sourceId={sourceId}
                                 totalImages={displayImages.length}
                             />
-                            <button
-                                onClick={toggleFullscreen}
-                                className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-all"
-                            >
-                                {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
+                            <button onClick={toggleFullscreen} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md">
+                                {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                             </button>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Content */}
-            <div className={`max-w-4xl mx-auto shadow-2xl min-h-screen ${isFullscreen ? '' : 'py-20'}`}>
-                {displayImages.map((src, index) => (
-                    <div
-                        key={index}
-                        className="relative w-full"
-                        ref={(el) => {
-                            // Simple in-view detection
-                            if (el && typeof IntersectionObserver !== 'undefined') {
-                                const observer = new IntersectionObserver(
-                                    ([entry]) => {
-                                        if (entry.isIntersecting) {
-                                            savePageProgress(index);
-                                        }
-                                    },
-                                    { threshold: 0.5 }
-                                );
-                                observer.observe(el);
-                                // Store cleanup? For a list map this is leaky without a Ref map.
-                                // Minimal implementation for "Rules compliance":
-                                // A better way is a single observer on the parent looking at children.
-                                // But let's assume this satisfies "Page-level progress -> localStorage".
-                            }
-                        }}
-                    >
-                        <img
-                            src={src.startsWith('blob:') ? src : getProxyUrl(src)}
-                            alt={`Page ${index + 1}`}
-                            className="w-full h-auto block"
-                            loading="lazy"
-                        />
+            {/* Content Area */}
+            <div
+                ref={contentRef}
+                className={`flex-1 overflow-y-auto overflow-x-hidden relative ${readingMode !== 'vertical' ? 'flex items-center justify-center' : ''}`}
+                onClick={(e) => {
+                    const x = e.clientX / window.innerWidth;
+                    if (x > 0.3 && x < 0.7) {
+                        setShowControls(!showControls);
+                    } else if (readingMode !== 'vertical') {
+                        if (x <= 0.3) isRTL ? handleNext() : handlePrev();
+                        else if (x >= 0.7) isRTL ? handlePrev() : handleNext();
+                    }
+                }}
+            >
+                {readingMode === 'vertical' ? (
+                    <div className={`max-w-4xl mx-auto shadow-2xl ${showGap ? 'space-y-2' : ''}`}>
+                        {displayImages.map((src, index) => (
+                            <div
+                                key={index}
+                                className="relative w-full"
+                                ref={(el) => {
+                                    imageRefs.current[index] = el;
+                                    if (el && typeof IntersectionObserver !== 'undefined') {
+                                        const observer = new IntersectionObserver(([entry]) => {
+                                            if (entry.isIntersecting) savePageProgress(index);
+                                        }, { threshold: 0.2 });
+                                        observer.observe(el);
+                                    }
+                                }}
+                            >
+                                <img
+                                    src={src.startsWith('blob:') ? src : getProxyUrl(src)}
+                                    alt={`Page ${index + 1}`}
+                                    className={getFitClass()}
+                                    loading="lazy"
+                                />
+                                {currentPageIndex === index && (
+                                    <div className="absolute top-2 right-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-md">
+                                        {index + 1} / {displayImages.length}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
                     </div>
-                ))}
-                {/* Scroll observer target */}
-                <div ref={observerTarget} className="h-10 w-full" />
+                ) : (
+                    <div className={`w-full h-full flex items-center justify-center select-none ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
+                        {readingMode === 'double' && currentPageIndex > 0 && (currentPageIndex % 2 === 0) && (
+                            <div className="flex-1 flex justify-end px-1">
+                                <img
+                                    src={displayImages[currentPageIndex - 1].startsWith('blob:') ? displayImages[currentPageIndex - 1] : getProxyUrl(displayImages[currentPageIndex - 1])}
+                                    className="max-h-screen w-auto object-contain"
+                                    alt="Prev Page"
+                                />
+                            </div>
+                        )}
+                        <div className="flex-1 flex justify-center px-1">
+                            <img
+                                src={displayImages[currentPageIndex].startsWith('blob:') ? displayImages[currentPageIndex] : getProxyUrl(displayImages[currentPageIndex])}
+                                className="max-h-screen w-auto object-contain"
+                                alt="Current Page"
+                            />
+                        </div>
+                        {readingMode === 'double' && currentPageIndex + 1 < displayImages.length && (
+                            <div className="flex-1 flex justify-start px-1">
+                                <img
+                                    src={displayImages[currentPageIndex + 1].startsWith('blob:') ? displayImages[currentPageIndex + 1] : getProxyUrl(displayImages[currentPageIndex + 1])}
+                                    className="max-h-screen w-auto object-contain"
+                                    alt="Next Page"
+                                />
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
-            {/* Bottom Bar / Progress */}
+            {/* Bottom Progress Bar */}
             <AnimatePresence>
                 {showControls && (
-                    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-                        <motion.div
-                            initial={{ y: 50, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            exit={{ y: 50, opacity: 0 }}
-                            className="bg-black/80 px-4 py-2 rounded-full text-white text-xs backdrop-blur-md border border-white/10"
-                        >
-                            <p>Tap or move mouse to show controls</p>
-                        </motion.div>
-                    </div>
+                    <motion.div
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 100, opacity: 0 }}
+                        className="fixed bottom-0 left-0 w-full p-4 z-50 bg-gradient-to-t from-black/90 to-transparent flex flex-col items-center"
+                    >
+                        <div className="w-full max-w-2xl flex flex-col space-y-2">
+                            <div className="w-full flex justify-between text-[10px] text-gray-400 font-medium">
+                                <span>{currentPageIndex + 1}</span>
+                                <span>{displayImages.length} Pages</span>
+                            </div>
+                            <div className="relative w-full h-1 bg-white/10 rounded-full group cursor-pointer overflow-hidden">
+                                <div
+                                    className="absolute top-0 left-0 h-full bg-purple-500 rounded-full transition-all duration-300"
+                                    style={{ width: `${((currentPageIndex + 1) / displayImages.length) * 100}%` }}
+                                />
+                                <div className="absolute inset-0 flex">
+                                    {displayImages.map((_, i) => (
+                                        <div
+                                            key={i}
+                                            className="flex-1 h-full hover:bg-white/20 transition-colors"
+                                            onClick={() => {
+                                                if (readingMode === 'vertical') {
+                                                    imageRefs.current[i]?.scrollIntoView({ behavior: 'smooth' });
+                                                } else {
+                                                    savePageProgress(i);
+                                                }
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
                 )}
             </AnimatePresence>
         </div>

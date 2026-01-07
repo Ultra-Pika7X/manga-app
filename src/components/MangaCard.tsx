@@ -9,7 +9,7 @@ interface MangaCardProps {
 
 export default function MangaCard({ manga }: MangaCardProps) {
     return (
-        <Link href={`/manga/${manga.id}?sourceId=${manga.sourceId || 'mangadex'}`} className="group relative block aspect-[2/3] rounded-xl overflow-hidden shadow-lg transition-transform hover:scale-105 hover:shadow-2xl hover:z-10 bg-gray-800">
+        <Link href={`/manga/${manga.id}?sourceId=${manga.sourceId || 'mangakakalot'}`} className="group relative block aspect-[2/3] rounded-xl overflow-hidden shadow-lg transition-transform hover:scale-105 hover:shadow-2xl hover:z-10 bg-gray-800">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
                 src={getProxyUrl(manga.cover)}
@@ -24,7 +24,12 @@ export default function MangaCard({ manga }: MangaCardProps) {
                 <h3 className="text-white font-bold text-lg leading-tight line-clamp-2 group-hover:text-purple-300 transition-colors">
                     {manga.title}
                 </h3>
-                {manga.status && (
+                {(manga.status?.toLowerCase().includes('one-shot')) && (
+                    <span className="inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold bg-pink-600 text-white rounded shadow-lg shadow-pink-900/40">
+                        One-Shot
+                    </span>
+                )}
+                {manga.status && !manga.status.toLowerCase().includes('one-shot') && (
                     <span className="inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold bg-white/20 text-white rounded">
                         {manga.status}
                     </span>

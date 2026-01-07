@@ -1,6 +1,8 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { MangaSource, Manga, MangaDetails, Chapter } from '../types';
+import { filterChapterImages, isFakeChapter, fetchPage, sanitizeUrl } from '../utils';
+
 
 const BASE_URL = 'https://mangakakalot.com';
 
@@ -13,7 +15,7 @@ export const MangakakalotSource: MangaSource = {
             const formattedQuery = query.toLowerCase().replace(/ /g, '_');
             const url = `${BASE_URL}/search/story/${formattedQuery}`; // Mangakakalot search URL pattern
 
-            const { data } = await axios.get(url);
+            const data = await fetchPage(url);
             const $ = cheerio.load(data);
 
             const results: Manga[] = [];
@@ -73,105 +75,158 @@ export const MangakakalotSource: MangaSource = {
                 url = `${BASE_URL}/manga/${id}`;
             }
 
-            const { data } = await axios.get(url);
-            const $ = cheerio.load(data);
+        } else {
+            // Try default
+            url = `${BASE_URL}/manga/${id}`;
+        }
 
-            const title = $('.manga-info-text li h1').text().trim() || $('.story-info-right h1').text().trim();
-            const cover = $('.manga-info-pic img').attr('src') || $('.info-image img').attr('src') || '';
-            const description = $('#noidungm').text().trim() || $('.panel-story-info-description').text().trim();
+            const data = await fetchPage(url);
+    const $ = cheerio.load(data);
 
-            // Authors
-            const author = $('.manga-info-text li:contains("Author")').text().replace('Author(s) :', '').trim()
-                || $('.table-label:contains("Author")').next().text().trim();
+    const title = $('.manga-info-text li h1').text().trim() || $('.story-info-right h1').text().trim();
+    const cover = $('.manga-info-pic img').attr('src') || $('.info-image img').attr('src') || '';
+    const description = $('#noidungm').text().trim() || $('.panel-story-info-description').text().trim();
 
-            // Status
-            const status = $('.manga-info-text li:contains("Status")').text().replace('Status :', '').trim()
-                || $('.table-label:contains("Status")').next().text().trim();
+    // Authors
+    const author = $('.manga-info-text li:contains("Author")').text().replace('Author(s) :', '').trim()
+        || $('.table-label:contains("Author")').next().text().trim();
 
-            const manga: Manga = {
-                id,
+    // Status
+    const status = $('.manga-info-text li:contains("Status")').text().replace('Status :', '').trim()
+        || $('.table-label:contains("Status")').next().text().trim();
+
+    const manga: Manga = {
+        id,
+        title,
+        cover,
+        description,
+        author,
+        status,
+        sourceId: 'mangakakalot'
+    };
+
+    const chapters: Chapter[] = [];
+    $('.row-content-chapter li').each((_, element) => {
+        const a = $(element).find('a');
+        const title = a.text().trim();
+        const href = a.attr('href');
+        const chapterId = href || ''; // Use full URL as ID for Mangakakalot
+        const time = $(element).find('.chapter-time').text().trim();
+
+        if (chapterId && !isFakeChapter(title)) {
+            chapters.push({
+                id: chapterId,
                 title,
-                cover,
-                description,
-                author,
-                status,
+                // parse chapter number from title?
+                chapter: title.match(/Chapter\s+([\d.]+)/)?.[1] || '',
+                publishAt: time,
                 sourceId: 'mangakakalot'
-            };
-
-            const chapters: Chapter[] = [];
-            $('.row-content-chapter li').each((_, element) => {
-                const a = $(element).find('a');
-                const title = a.text().trim();
-                const href = a.attr('href');
-                const chapterId = href || ''; // Use full URL as ID for Mangakakalot
-                const time = $(element).find('.chapter-time').text().trim();
-
-                if (chapterId) {
-                    chapters.push({
-                        id: chapterId,
-                        title,
-                        // parse chapter number from title?
-                        chapter: title.match(/Chapter\s+([\d.]+)/)?.[1] || '',
-                        publishAt: time,
-                        sourceId: 'mangakakalot'
-                    });
-                }
             });
-            // If .row-content-chapter not found, try .chapter-list (manganato style)
-            if (chapters.length === 0) {
-                $('.chapter-list li').each((_, element) => {
-                    const a = $(element).find('a');
-                    const title = a.text().trim();
-                    const href = a.attr('href');
-                    const chapterId = href || '';
+        }
+    });
+    // If .row-content-chapter not found, try .chapter-list (manganato style)
+    if(chapters.length === 0) {
+        $('.chapter-list li').each((_, element) => {
+            const a = $(element).find('a');
+            const title = a.text().trim();
+            const href = a.attr('href');
+            const chapterId = href || '';
 
-                    if (chapterId) {
-                        chapters.push({
-                            id: chapterId,
-                            title,
-                            chapter: title.match(/Chapter\s+([\d.]+)/)?.[1] || '',
-                            sourceId: 'mangakakalot'
-                        });
-                    }
+            if (chapterId && !isFakeChapter(title)) {
+                chapters.push({
+                    id: chapterId,
+                    title,
+                    chapter: title.match(/Chapter\s+([\d.]+)/)?.[1] || '',
+                    sourceId: 'mangakakalot'
                 });
             }
+        });
+            }
 
-            return { manga, chapters };
+return { manga, chapters };
 
         } catch (error: any) {
-            console.error(`[Mangakakalot] Details error for ${id}:`, error.message);
-            return null;
-        }
+    console.error(`[Mangakakalot] Details error for ${id}:`, error.message);
+    return null;
+}
     },
 
-    async getChapterImages(chapterId: string): Promise<string[]> {
-        try {
-            // chapterId IS the URL now
-            const url = chapterId.startsWith('http') ? chapterId : `${BASE_URL}/${chapterId}`;
+    async getChapterImages(chapterId: string): Promise < string[] > {
+    try {
+        // chapterId IS the URL now
+        const url = chapterId.startsWith('http') ? chapterId : `${BASE_URL}/${chapterId}`;
 
-            const { data } = await axios.get(url);
-            const $ = cheerio.load(data);
-
-            const images: string[] = [];
-
-            $('.container-chapter-reader img').each((_, element) => {
-                const src = $(element).attr('src');
-                if (src) images.push(src);
-            });
-
-            // Try fallback selector
-            if (images.length === 0) {
-                $('#vungdoc img').each((_, element) => {
-                    const src = $(element).attr('src');
-                    if (src) images.push(src);
-                });
+        const { data } = await axios.get(url, {
+            timeout: 10000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
+        });
+        const $ = cheerio.load(data);
 
-            return images;
+        // 1. Check for "Page Not Found" or "Error" indicators
+        const pageTitle = $('title').text().toLowerCase();
+        if(pageTitle.includes('404') || pageTitle.includes('not found') || pageTitle.includes('error')) {
+    console.warn(`[Mangakakalot] Invalid chapter page: ${url}`);
+    return [];
+}
+
+// 2. Validate DOM (Text Density / Bad Keywords)
+const domValidation = validateDom($);
+if (!domValidation.isValid) {
+    console.warn(`[Mangakakalot] Page rejected by DOM validator: ${domValidation.reason}`);
+    return [];
+}
+
+const images: string[] = [];
+const seenUrls = new Set<string>();
+
+// 2. Define valid containers (ORDER MATTERS)
+// .container-chapter-reader is the modern one
+// #vungdoc is the legacy one
+const containers = [
+    '.container-chapter-reader',
+    '#vungdoc',
+    '.vung-doc'
+];
+
+
+for (const selector of containers) {
+    if (images.length > 0) break;
+
+    // If selector targets images directly (generic fallback)
+    const selection = $(selector).is('img') ? $(selector) : $(selector).find('img');
+
+    selection.each((_, element) => {
+        const $img = $(element);
+        const parentLink = $img.closest('a').attr('href');
+        if (parentLink && (parentLink.includes('ads') || parentLink.includes('banner'))) return;
+
+        let src = $img.attr('src') || $img.attr('data-src');
+
+        const cleanUrl = sanitizeUrl(src, BASE_URL);
+
+        if (cleanUrl && !seenUrls.has(cleanUrl)) {
+            const clean = filterChapterImages([cleanUrl]);
+            if (clean.length > 0) {
+                images.push(cleanUrl);
+                seenUrls.add(cleanUrl);
+            }
+        }
+    });
+}
+
+// 3. Validate Page Count
+// A chapter with 0 or 1 image is suspicious (unless it's a specific art preview, but usually not)
+if (images.length === 0) {
+    console.warn(`[Mangakakalot] No images found for ${chapterId}`);
+}
+
+return images;
 
         } catch (error: any) {
-            console.error(`[Mangakakalot] Images error for ${chapterId}:`, error.message);
-            return [];
-        }
+    console.error(`[Mangakakalot] Images error for ${chapterId}:`, error.message);
+    return [];
+}
     }
 };
