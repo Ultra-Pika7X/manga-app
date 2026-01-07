@@ -10,9 +10,16 @@ interface SourceSwitcherProps {
 }
 
 const sources = [
+    { id: 'mangasee', name: 'MangaSee (Best Quality)' },
+    { id: 'mangafire', name: 'MangaFire' },
+    { id: 'mangadex', name: 'MangaDex' },
+    { id: 'comick', name: 'Comick' },
     { id: 'mangabuddy', name: 'MangaBuddy' },
-    { id: 'weebdex', name: 'WeebDex' },
+    { id: 'mangareader', name: 'MangaReader' },
+    { id: 'mangahere', name: 'MangaHere' },
+    { id: 'readmanga', name: 'ReadManga' },
     { id: 'mangakakalot', name: 'Mangakakalot' },
+    { id: 'weebdex', name: 'WeebDex' },
 ];
 
 export default function SourceSwitcher({ currentSource, mangaTitle }: SourceSwitcherProps) {
