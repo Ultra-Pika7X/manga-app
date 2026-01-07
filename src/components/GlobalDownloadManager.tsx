@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { useDownload } from '@/hooks/useDownload';
 import { ChevronDown, ChevronUp, X, Download, Pause, Play } from 'lucide-react';

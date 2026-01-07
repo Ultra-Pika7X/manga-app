@@ -1,3 +1,5 @@
+"use client";
+
 import Link from 'next/link';
 import { useDownload } from '@/hooks/useDownload';
 import { Play, Clock, RefreshCw } from 'lucide-react';

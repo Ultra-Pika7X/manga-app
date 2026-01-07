@@ -12,10 +12,15 @@ import { getProxyUrl } from '@/lib/utils';
 import { getChapterImagesAutoAction } from '@/app/actions';
 import { DownloadStatus } from '@/lib/downloadManager';
 
-chapterTitle: string;
-cover: string;
-sourceId: string;
-anilistId: string;
+interface ReaderControlsProps {
+    images: string[];
+    chapterId: string;
+    mangaId: string;
+    mangaTitle: string;
+    chapterTitle: string;
+    cover: string;
+    sourceId: string;
+    anilistId: string;
 }
 
 type ReadingMode = 'vertical' | 'paged' | 'double';
