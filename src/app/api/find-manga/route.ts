@@ -17,7 +17,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ found: false, mangaId: null });
         }
 
-        // Try to find exact match first
+        // 1. Try case-insensitive exact match
         const exactMatch = results.find(
             m => m.title.toLowerCase() === title.toLowerCase()
         );
@@ -26,7 +26,18 @@ export async function GET(request: Request) {
             return NextResponse.json({ found: true, mangaId: exactMatch.id, title: exactMatch.title });
         }
 
-        // Otherwise return the first result
+        // 2. Try contains match (both ways)
+        const containsMatch = results.find(
+            m => m.title.toLowerCase().includes(title.toLowerCase()) ||
+                title.toLowerCase().includes(m.title.toLowerCase())
+        );
+
+        if (containsMatch) {
+            return NextResponse.json({ found: true, mangaId: containsMatch.id, title: containsMatch.title });
+        }
+
+        // 3. Fallback: Return the first result if we have anything
+        // This is better than failing to search, as the user likely wants the top hit
         return NextResponse.json({ found: true, mangaId: results[0].id, title: results[0].title });
     } catch (error) {
         console.error('Source switch search error:', error);
