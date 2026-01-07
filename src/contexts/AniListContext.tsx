@@ -275,6 +275,13 @@ export const AniListProvider = ({ children }: { children: React.ReactNode }) => 
         } catch { }
     };
 
+    // OPTIONAL: Block rendering until auth resolved to prevent "flash" of logged out state
+    // But since AniList is optional, we might just return children with loading=true?
+    // User requested: "Delay UI render until auth restored" -> implying strict blocking
+    if (loading) {
+        return null; // Or a minimal spinner: <div className="h-screen bg-[#1a1a2e]" />
+    }
+
     return (
         <AniListContext.Provider value={{
             token,
