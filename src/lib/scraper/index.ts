@@ -6,6 +6,8 @@ import { ComickSource } from './sources/comick';
 import { MangaReaderSource } from './sources/mangareader';
 import { MangaHereSource } from './sources/mangahere';
 import { ReadMangaSource } from './sources/readmanga';
+import { MangaSeeSource } from './sources/mangasee';
+import { MangaFireSource } from './sources/mangafire';
 import { MangaSource, Manga, MangaDetails } from './types';
 import { validateImageSet } from './validator';
 import { compareTitles } from '../similarity';
@@ -34,14 +36,16 @@ function getSourcePriority(sourceId: string): number {
 
 
 const sources: Record<string, MangaSource> = {
-    [MangakakalotSource.id]: MangakakalotSource,
-    [MangaBuddySource.id]: MangaBuddySource,
-    [WeebDexSource.id]: WeebDexSource,
     [MangaDexSource.id]: MangaDexSource,
     [ComickSource.id]: ComickSource,
+    [MangaSeeSource.id]: MangaSeeSource,
+    [MangaFireSource.id]: MangaFireSource,
+    [MangaBuddySource.id]: MangaBuddySource,
     [MangaReaderSource.id]: MangaReaderSource,
     [MangaHereSource.id]: MangaHereSource,
     [ReadMangaSource.id]: ReadMangaSource,
+    [MangakakalotSource.id]: MangakakalotSource,
+    [WeebDexSource.id]: WeebDexSource,
 };
 
 // Helper to calculate similarity score
@@ -81,11 +85,14 @@ const calculateScore = (manga: Manga, query: string): number => {
     // Source reliability (Seanime-inspired prioritization)
     if (manga.sourceId === 'mangadex') score += 20;
     if (manga.sourceId === 'comick') score += 18;
+    if (manga.sourceId === 'mangasee') score += 17;
+    if (manga.sourceId === 'mangafire') score += 16;
     if (manga.sourceId === 'mangareader') score += 15;
     if (manga.sourceId === 'mangabuddy') score += 10;
     if (manga.sourceId === 'mangahere') score += 8;
     if (manga.sourceId === 'readmanga') score += 7;
     if (manga.sourceId === 'mangakakalot') score += 5;
+    if (manga.sourceId === 'weebdex') score += 3;
 
     return score;
 };
@@ -220,6 +227,8 @@ export const ScraperEngine = {
         const priorityOrder = [
             'mangadex',
             'comick',
+            'mangasee',
+            'mangafire',
             'mangareader',
             'mangabuddy',
             'mangahere',
