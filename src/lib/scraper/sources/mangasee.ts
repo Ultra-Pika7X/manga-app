@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { fetchPage } from '../utils'; // Use centralized robust fetcher
 import * as cheerio from 'cheerio';
 import { MangaSource, Manga, MangaDetails, Chapter } from '../types';
 
@@ -10,15 +10,10 @@ export const MangaSeeSource: MangaSource = {
 
     async search(query: string): Promise<Manga[]> {
         try {
-            // MangaSee uses a JSON directory for search
-            const { data } = await axios.get(`${BASE_URL}/search/request.php`, {
-                params: { keyword: query },
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
-
-            // Fallback: Try directory search page
-            const searchPage = await axios.get(`${BASE_URL}/search/?name=${encodeURIComponent(query)}`);
-            const $ = cheerio.load(searchPage.data);
+            // Note: JSON endpoint often protected/complex. We use standard search page with robust headers.
+            const url = `${BASE_URL}/search/?name=${encodeURIComponent(query)}`;
+            const data = await fetchPage(url);
+            const $ = cheerio.load(data);
 
             const results: Manga[] = [];
 
@@ -53,7 +48,7 @@ export const MangaSeeSource: MangaSource = {
     async getMangaDetails(id: string): Promise<MangaDetails | null> {
         try {
             const url = `${BASE_URL}/manga/${id}`;
-            const { data } = await axios.get(url);
+            const data = await fetchPage(url);
             const $ = cheerio.load(data);
 
             const title = $('h1').first().text().trim();
@@ -117,7 +112,7 @@ export const MangaSeeSource: MangaSource = {
         try {
             // chapterId format: "MangaName-chapter-1"
             const url = `${BASE_URL}/read-online/${chapterId}.html`;
-            const { data } = await axios.get(url);
+            const data = await fetchPage(url);
             const $ = cheerio.load(data);
 
             const images: string[] = [];

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { fetchPage } from '../utils'; // Use robust fetcher
 import * as cheerio from 'cheerio';
 import { MangaSource, Manga, MangaDetails, Chapter } from '../types';
 
@@ -10,9 +10,8 @@ export const MangaFireSource: MangaSource = {
 
     async search(query: string): Promise<Manga[]> {
         try {
-            const { data } = await axios.get(`${BASE_URL}/filter`, {
-                params: { keyword: query }
-            });
+            const url = `${BASE_URL}/filter?keyword=${encodeURIComponent(query)}`;
+            const data = await fetchPage(url);
             const $ = cheerio.load(data);
             const results: Manga[] = [];
 
@@ -46,7 +45,7 @@ export const MangaFireSource: MangaSource = {
     async getMangaDetails(id: string): Promise<MangaDetails | null> {
         try {
             const url = id.startsWith('http') ? id : `${BASE_URL}/manga/${id}`;
-            const { data } = await axios.get(url);
+            const data = await fetchPage(url);
             const $ = cheerio.load(data);
 
             const title = $('h1.manga-name, h1, .title').first().text().trim();
@@ -84,7 +83,7 @@ export const MangaFireSource: MangaSource = {
     async getChapterImages(chapterId: string): Promise<string[]> {
         try {
             const url = chapterId.startsWith('http') ? chapterId : `${BASE_URL}${chapterId}`;
-            const { data } = await axios.get(url);
+            const data = await fetchPage(url);
             const $ = cheerio.load(data);
 
             const images: string[] = [];
