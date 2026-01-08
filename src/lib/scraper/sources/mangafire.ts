@@ -11,7 +11,11 @@ export const MangaFireSource: MangaSource = {
     async search(query: string): Promise<Manga[]> {
         try {
             const url = `${BASE_URL}/filter?keyword=${encodeURIComponent(query)}`;
-            const data = await fetchPage(url);
+            const data = await fetchPage(url, {
+                headers: {
+                    'Referer': BASE_URL
+                }
+            });
             const $ = cheerio.load(data);
             const results: Manga[] = [];
 

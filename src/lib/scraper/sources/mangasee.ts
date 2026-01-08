@@ -12,7 +12,11 @@ export const MangaSeeSource: MangaSource = {
         try {
             // Note: JSON endpoint often protected/complex. We use standard search page with robust headers.
             const url = `${BASE_URL}/search/?name=${encodeURIComponent(query)}`;
-            const data = await fetchPage(url);
+            const data = await fetchPage(url, {
+                headers: {
+                    'Referer': BASE_URL
+                }
+            });
             const $ = cheerio.load(data);
 
             const results: Manga[] = [];

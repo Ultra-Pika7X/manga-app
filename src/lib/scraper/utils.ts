@@ -116,36 +116,35 @@ export function sanitizeUrl(url: string | undefined, baseUrl: string): string | 
 }
 
 // --- PROTECTION SYSTEM ---
-import axios, { AxiosRequestConfig } from 'axios';
+// --- PROTECTION SYSTEM ---
 
 const USER_AGENTS = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/121.0'
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.4; rv:124.0) Gecko/20100101 Firefox/124.0',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
 ];
 
 const REFERERS = [
-    'https://google.com/',
-    'https://bing.com/',
+    'https://www.google.com/',
+    'https://www.bing.com/',
     'https://duckduckgo.com/',
-    'https://twitter.com/'
+    'https://search.yahoo.com/'
 ];
 
 // Simple in-memory cache (Soft Caching) to avoid slamming server
-// Map<URL, { data: any, timestamp: number }>
-const REQUEST_CACHE = new Map<string, { data: any, timestamp: number }>();
+// Map<URL, { data: string, timestamp: number }>
+const REQUEST_CACHE = new Map<string, { data: string, timestamp: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Enhanced fetch with Anti-Ban protections:
- * 1. Header Rotation (User-Agent)
- * 2. Randomized Delays (Human Mimicry)
- * 3. Soft Caching (Reduce Requests)
- * 4. Request Throttling (Implied by wait)
+ * Enhanced fetch with Anti-Ban protections & Puppeteer Fallback:
+ * 1. Native Fetch with Header Rotation
+ * 2. Fallback to Puppeteer for Cloudflare/JS Challenges
+ * 3. Caching and Throttling
  */
-export async function fetchPage(url: string, options: AxiosRequestConfig = {}): Promise<any> {
+export async function fetchPage(url: string, options: RequestInit = {}): Promise<string> {
     // 1. Check Cache
     const cached = REQUEST_CACHE.get(url);
     if (cached) {
@@ -157,56 +156,146 @@ export async function fetchPage(url: string, options: AxiosRequestConfig = {}): 
         }
     }
 
-    // 2. Randomized Delay (Throttling / Human Mimicry)
-    // Wait between 500ms and 1500ms
-    const delay = Math.floor(Math.random() * 1000) + 500;
+    // 2. Randomized Delay
+    const delay = Math.floor(Math.random() * 800) + 200;
     await new Promise(resolve => setTimeout(resolve, delay));
 
     // 3. Header Rotation
     const randomAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
     const randomReferer = REFERERS[Math.floor(Math.random() * REFERERS.length)];
 
+    const headers = {
+        'User-Agent': randomAgent,
+        'Referer': randomReferer,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Ch-Ua': '"Google Chrome";v="123", "Not:A-Brand";v="8", "Chromium";v="123"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'cross-site',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+        ...options.headers
+    };
+
+    // Timeout for standard fetch
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout for fetch
+
     try {
-        const response = await axios.get(url, {
+        console.log(`[Fetch] Attempting enhanced fetch: ${url}`);
+        const response = await fetch(url, {
             ...options,
-            headers: {
-                'User-Agent': randomAgent,
-                'Referer': randomReferer, // Sometimes overridden by source specific referer
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                ...options.headers // Allow override
-            },
-            timeout: 15000 // Extended timeout
+            headers,
+            signal: controller.signal
         });
 
-        // 4. Update Cache (Only successful responses)
-        if (response.status === 200) {
-            // Validate Content (Redirect detection)
-            if (typeof response.data === 'string' && isRedirectPage(response.data)) {
-                console.warn(`[Suspicious] Redirect trap detected for ${url}`);
-                // Don't cache, don't return valid data (or empty string/throw?)
-                // Throwing allows scrapers to catch and handle or fail gracefully
-                throw new Error('Redirect trap detected');
-            }
+        clearTimeout(timeoutId);
 
-            // Prune cache if too big to avoid memory leaks
-            if (REQUEST_CACHE.size > 100) {
-                const firstKey = REQUEST_CACHE.keys().next().value;
-                if (firstKey) REQUEST_CACHE.delete(firstKey);
-            }
-
-            REQUEST_CACHE.set(url, {
-                data: response.data,
-                timestamp: Date.now()
-            });
+        // Check for Cloudflare 403/503 or successful 200
+        if (!response.ok && response.status !== 403 && response.status !== 503) {
+            throw new Error(`Fetch failed with status: ${response.status} ${response.statusText}`);
         }
 
-        return response.data;
+        const text = await response.text();
+
+        // 4. Validate Content (Redirect trap & Cloudflare check & 403/503 content)
+        const isCloudflare = response.status === 403 || response.status === 503 ||
+            text.includes('Just a moment...') ||
+            text.includes('Checking your browser') ||
+            (isRedirectPage(text) && !url.includes('google')); // Basic check
+
+        if (isCloudflare) {
+            console.warn(`[Protection] Cloudflare/Protection detected for ${url}. Switching to Puppeteer...`);
+            return await fetchWithPuppeteer(url, randomAgent);
+        }
+
+        // 5. Update Cache
+        cacheResponse(url, text);
+        return text;
+
     } catch (error: any) {
-        // Log failure
+        clearTimeout(timeoutId);
+
+        if (error.name === 'AbortError' || error.message.includes('fetch failed')) {
+            console.warn(`[Fetch] Failed (${error.message}). Retrying with Puppeteer...`);
+            try {
+                return await fetchWithPuppeteer(url, randomAgent);
+            } catch (pError: any) {
+                logScraperError(url, pError.message, 'fetchPage+Puppeteer');
+                throw error;
+            }
+        }
+
         logScraperError(url, error.message, 'fetchPage');
         throw error;
     }
+}
+
+async function fetchWithPuppeteer(url: string, userAgent: string): Promise<string> {
+    const puppeteerGen = await getPuppeteer();
+    if (!puppeteerGen || !puppeteerGen.default) {
+        throw new Error("Puppeteer not available");
+    }
+    const puppeteer = puppeteerGen.default;
+
+    // Launch lighter browser
+    const browser = await puppeteer.launch({
+        headless: true, // "new" is default in newer versions, but boolean is widely supported
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-accelerated-2d-canvas', '--disable-gpu'],
+        defaultViewport: { width: 1280, height: 720 }
+    });
+
+    try {
+        const page = await browser.newPage();
+        await page.setUserAgent(userAgent);
+
+        // Block heavy resources
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+
+        // Navigate with generous timeout
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+        // Wait a bit for Cloudflare to pass (if any)
+        try {
+            await page.waitForSelector('body', { timeout: 15000 });
+            // If we see "Just a moment", wait more?
+            // Usually domcontentloaded is enough for the challenge script to start runnning
+            // We might need to wait for a specific element that indicates success or just wait existing
+            await new Promise(r => setTimeout(r, 3000)); // 3s grace period for JS redirects
+        } catch (e) { }
+
+        const content = await page.content();
+
+        // Double check we bypassed
+        if (content.includes('Just a moment...') || content.includes('Checking your browser')) {
+            throw new Error('Puppeteer failed to bypass Cloudflare');
+        }
+
+        cacheResponse(url, content);
+        return content;
+    } finally {
+        await browser.close();
+    }
+}
+
+function cacheResponse(url: string, data: string) {
+    if (REQUEST_CACHE.size > 100) {
+        const firstKey = REQUEST_CACHE.keys().next().value;
+        if (firstKey) REQUEST_CACHE.delete(firstKey);
+    }
+    REQUEST_CACHE.set(url, { data, timestamp: Date.now() });
 }
 
 // --- LOGGING SYSTEM ---

@@ -15,7 +15,11 @@ export const MangaBuddySource: MangaSource = {
             const formattedQuery = query.toLowerCase().replace(/ /g, '-');
             const url = `${BASE_URL}/search?q=${formattedQuery}`;
 
-            const data = await fetchPage(url);
+            const data = await fetchPage(url, {
+                headers: {
+                    'Referer': BASE_URL
+                }
+            });
             const $ = cheerio.load(data);
 
             const results: Manga[] = [];
