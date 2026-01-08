@@ -86,8 +86,12 @@ export const MangaFireSource: MangaSource = {
 
     async getChapterImages(chapterId: string): Promise<string[]> {
         try {
-            const url = chapterId.startsWith('http') ? chapterId : `${BASE_URL}${chapterId}`;
-            const data = await fetchPage(url);
+            const url = `${BASE_URL}${chapterId}`;
+            const data = await fetchPage(url, {
+                headers: {
+                    'Referer': BASE_URL
+                }
+            });
             const $ = cheerio.load(data);
 
             const images: string[] = [];

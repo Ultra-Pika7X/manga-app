@@ -124,11 +124,9 @@ export const MangaBuddySource: MangaSource = {
             const decodedChapterId = decodeURIComponent(chapterId);
             // IMPROVED: Safer URL construction
             const url = decodedChapterId.startsWith('http') ? decodedChapterId : `${BASE_URL}${decodedChapterId.startsWith('/') ? '' : '/'}${decodedChapterId}`;
-
             const data = await fetchPage(url, {
                 headers: {
-                    'Referer': BASE_URL,
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
+                    'Referer': BASE_URL
                 }
             });
             const $ = cheerio.load(data);
