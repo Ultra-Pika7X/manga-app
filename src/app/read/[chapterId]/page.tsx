@@ -1,7 +1,7 @@
 import { resolveMappingAction, saveLastWorkingSourceAction } from '@/app/actions';
 import { getMediaById } from '@/lib/anilist';
 import { ScraperEngine } from '@/lib/scraper';
-import ReaderControls from '@/components/ReaderControls';
+import { MangaReader } from '@/components/reader';
 import CommentsSection from '@/components/CommentsSection';
 
 interface PageProps {
@@ -68,11 +68,11 @@ export default async function ReaderPage({ params, searchParams }: PageProps) {
     }
 
     return (
-        <main className="min-h-screen bg-[#0f0f1a]">
-            <ReaderControls
+        <main className="min-h-screen bg-black">
+            <MangaReader
                 images={images}
                 chapterId={chapterId}
-                mangaId={anilistId}
+                mangaId={technicalMangaId}
                 mangaTitle={mangaTitle}
                 chapterTitle={chapterTitle || `Chapter ${chapterId}`}
                 cover={cover}
@@ -81,9 +81,10 @@ export default async function ReaderPage({ params, searchParams }: PageProps) {
             />
 
             {/* Comments Section */}
-            <div className="relative z-10 pb-20">
+            <div className="relative z-10 pb-20 bg-gray-900">
                 <CommentsSection mangaId={anilistId} chapterId={chapterId} />
             </div>
         </main>
     );
 }
+
