@@ -1,4 +1,6 @@
-export const ANILIST_API_URL = 'https://graphql.anilist.co';
+// Use local proxy on client to avoid CORS, direct on server
+const IS_CLIENT = typeof window !== 'undefined';
+export const ANILIST_API_URL = IS_CLIENT ? '/api/anilist' : 'https://graphql.anilist.co';
 
 // TODO: Replace with your Client ID from https://anilist.co/settings/developer
 // User will provide this.

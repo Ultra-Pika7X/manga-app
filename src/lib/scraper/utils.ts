@@ -237,14 +237,14 @@ export async function fetchPage(url: string, options: RequestInit = {}): Promise
 }
 
 async function fetchWithPuppeteer(url: string, userAgent: string): Promise<string> {
-    const puppeteerGen = await getPuppeteer();
+    const puppeteerGen: any = await getPuppeteer();
     if (!puppeteerGen || !puppeteerGen.default) {
         throw new Error("Puppeteer not available");
     }
-    const puppeteer = puppeteerGen.default;
+    const puppeteerLib: any = puppeteerGen.default;
 
     // Launch lighter browser
-    const browser = await puppeteer.launch({
+    const browser = await puppeteerLib.launch({
         headless: true, // "new" is default in newer versions, but boolean is widely supported
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-accelerated-2d-canvas', '--disable-gpu'],
         defaultViewport: { width: 1280, height: 720 }
@@ -256,7 +256,7 @@ async function fetchWithPuppeteer(url: string, userAgent: string): Promise<strin
 
         // Block heavy resources
         await page.setRequestInterception(true);
-        page.on('request', (req) => {
+        page.on('request', (req: any) => {
             if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
                 req.abort();
             } else {
@@ -273,7 +273,7 @@ async function fetchWithPuppeteer(url: string, userAgent: string): Promise<strin
             // If we see "Just a moment", wait more?
             // Usually domcontentloaded is enough for the challenge script to start runnning
             // We might need to wait for a specific element that indicates success or just wait existing
-            await new Promise(r => setTimeout(r, 3000)); // 3s grace period for JS redirects
+            await new Promise((r: any) => setTimeout(r, 3000)); // 3s grace period for JS redirects
         } catch (e) { }
 
         const content = await page.content();
