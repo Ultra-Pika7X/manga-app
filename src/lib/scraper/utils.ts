@@ -210,8 +210,9 @@ export async function fetchPage(url: string, options: RequestInit = {}): Promise
             (isRedirectPage(text) && !url.includes('google')); // Basic check
 
         if (isCloudflare) {
-            console.warn(`[Protection] Cloudflare/Protection detected for ${url}. Switching to Puppeteer...`);
-            return await fetchWithPuppeteer(url, randomAgent);
+            console.warn(`[Protection] Cloudflare/Protection detected for ${url}. Puppeteer disabled for client build.`);
+            // Return empty string - source will be marked as failed
+            throw new Error('Cloudflare protection detected - source unavailable');
         }
 
         // 5. Update Cache
@@ -222,13 +223,7 @@ export async function fetchPage(url: string, options: RequestInit = {}): Promise
         clearTimeout(timeoutId);
 
         if (error.name === 'AbortError' || error.message.includes('fetch failed')) {
-            console.warn(`[Fetch] Failed (${error.message}). Retrying with Puppeteer...`);
-            try {
-                return await fetchWithPuppeteer(url, randomAgent);
-            } catch (pError: any) {
-                logScraperError(url, pError.message, 'fetchPage+Puppeteer');
-                throw error;
-            }
+            console.warn(`[Fetch] Failed (${error.message}). No Puppeteer fallback in client build.`);
         }
 
         logScraperError(url, error.message, 'fetchPage');
@@ -236,72 +231,8 @@ export async function fetchPage(url: string, options: RequestInit = {}): Promise
     }
 }
 
-
-async function getPuppeteer() {
-    try {
-        return await import('puppeteer');
-    } catch (e) {
-        return null;
-    }
-}
-
-async function fetchWithPuppeteer(url: string, userAgent: string): Promise<string> {
-    if (typeof window !== 'undefined') {
-        console.warn('Puppeteer skipped on client');
-        return "";
-    }
-    const puppeteerGen: any = await getPuppeteer();
-    if (!puppeteerGen || !puppeteerGen.default) {
-        throw new Error("Puppeteer not available");
-    }
-    const puppeteerLib: any = puppeteerGen.default;
-
-    // Launch lighter browser
-    const browser = await puppeteerLib.launch({
-        headless: true, // "new" is default in newer versions, but boolean is widely supported
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-accelerated-2d-canvas', '--disable-gpu'],
-        defaultViewport: { width: 1280, height: 720 }
-    });
-
-    try {
-        const page = await browser.newPage();
-        await page.setUserAgent(userAgent);
-
-        // Block heavy resources
-        await page.setRequestInterception(true);
-        page.on('request', (req: any) => {
-            if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
-                req.abort();
-            } else {
-                req.continue();
-            }
-        });
-
-        // Navigate with generous timeout
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
-        // Wait a bit for Cloudflare to pass (if any)
-        try {
-            await page.waitForSelector('body', { timeout: 15000 });
-            // If we see "Just a moment", wait more?
-            // Usually domcontentloaded is enough for the challenge script to start runnning
-            // We might need to wait for a specific element that indicates success or just wait existing
-            await new Promise((r: any) => setTimeout(r, 3000)); // 3s grace period for JS redirects
-        } catch (e) { }
-
-        const content = await page.content();
-
-        // Double check we bypassed
-        if (content.includes('Just a moment...') || content.includes('Checking your browser')) {
-            throw new Error('Puppeteer failed to bypass Cloudflare');
-        }
-
-        cacheResponse(url, content);
-        return content;
-    } finally {
-        await browser.close();
-    }
-}
+// Puppeteer functions removed for client-side compatibility
+// MangaPlusSource should be server-only via API routes
 
 function cacheResponse(url: string, data: string) {
     if (REQUEST_CACHE.size > 100) {

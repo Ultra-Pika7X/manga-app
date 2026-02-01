@@ -8,7 +8,7 @@ import { MangaHereSource } from './sources/mangahere';
 import { ReadMangaSource } from './sources/readmanga';
 import { MangaSeeSource } from './sources/mangasee';
 import { MangaFireSource } from './sources/mangafire';
-import { MangaPlusSource } from './sources/mangaplus';
+// MangaPlusSource is removed from client build due to Puppeteer dependency
 import { MangaSource, Manga, MangaDetails } from './types';
 import { validateImageSet } from './validator';
 import { compareTitles } from '../similarity';
@@ -37,7 +37,7 @@ function getSourcePriority(sourceId: string): number {
 
 
 const sources: Record<string, MangaSource> = {
-    [MangaPlusSource.id]: MangaPlusSource,
+    // MangaPlusSource removed - requires Puppeteer (server-only)
     [MangaDexSource.id]: MangaDexSource,
     [ComickSource.id]: ComickSource,
     [MangaSeeSource.id]: MangaSeeSource,
