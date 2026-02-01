@@ -236,7 +236,20 @@ export async function fetchPage(url: string, options: RequestInit = {}): Promise
     }
 }
 
+
+async function getPuppeteer() {
+    try {
+        return await import('puppeteer');
+    } catch (e) {
+        return null;
+    }
+}
+
 async function fetchWithPuppeteer(url: string, userAgent: string): Promise<string> {
+    if (typeof window !== 'undefined') {
+        console.warn('Puppeteer skipped on client');
+        return "";
+    }
     const puppeteerGen: any = await getPuppeteer();
     if (!puppeteerGen || !puppeteerGen.default) {
         throw new Error("Puppeteer not available");

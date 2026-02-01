@@ -1,7 +1,7 @@
 "use client";
 
 import { useFavorites } from '@/hooks/useFavorites';
-import { Manga } from '@/lib/scraper';
+import { Manga } from '@/lib/scraper/types';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
 import { useState } from 'react';
 
@@ -25,8 +25,8 @@ export default function FavoriteButton({ manga }: FavoriteButtonProps) {
         <button
             onClick={handleToggle}
             className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-bold transition-all active:scale-95 ${favorited
-                    ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/30'
-                    : 'bg-white/10 text-white hover:bg-white/20 backdrop-blur-md'
+                ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/30'
+                : 'bg-white/10 text-white hover:bg-white/20 backdrop-blur-md'
                 } ${isAnimating ? 'animate-bounce' : ''}`}
         >
             {favorited ? (

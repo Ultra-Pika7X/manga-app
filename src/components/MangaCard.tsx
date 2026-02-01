@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Manga } from '@/lib/scraper';
+import { Manga } from '@/lib/scraper/types';
 
 import { getProxyUrl } from '@/lib/utils';
 

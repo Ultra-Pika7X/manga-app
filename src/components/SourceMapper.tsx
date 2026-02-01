@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Settings2, Search, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { Manga } from '@/lib/scraper';
+import { Manga } from '@/lib/scraper/types';
 import { MangaMapping } from '@/lib/mapping';
 import { searchMangaAction, saveManualMappingAction } from '@/app/actions';
 
