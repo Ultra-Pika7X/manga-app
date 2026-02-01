@@ -8,6 +8,7 @@ import { MangaHereSource } from './sources/mangahere';
 import { ReadMangaSource } from './sources/readmanga';
 import { MangaSeeSource } from './sources/mangasee';
 import { MangaFireSource } from './sources/mangafire';
+import { MangaPlusSource } from './sources/mangaplus';
 import { MangaSource, Manga, MangaDetails } from './types';
 import { validateImageSet } from './validator';
 import { compareTitles } from '../similarity';
@@ -36,6 +37,7 @@ function getSourcePriority(sourceId: string): number {
 
 
 const sources: Record<string, MangaSource> = {
+    [MangaPlusSource.id]: MangaPlusSource,
     [MangaDexSource.id]: MangaDexSource,
     [ComickSource.id]: ComickSource,
     [MangaSeeSource.id]: MangaSeeSource,
@@ -98,6 +100,14 @@ const calculateScore = (manga: Manga, query: string): number => {
 };
 
 export const ScraperEngine = {
+    async getUpdates(sourceId: string = 'mangaplus'): Promise<Manga[]> {
+        const source = sources[sourceId];
+        if (source && source.getUpdates) {
+            return source.getUpdates();
+        }
+        return [];
+    },
+
     async search(query: string, sourceId?: string): Promise<Manga[]> {
         // If a specific source is requested
         if (sourceId && sources[sourceId]) {

@@ -1,0 +1,8 @@
+--- Testing MangaPlus Source ---
+Starting MangaPlus scraper test...
+
+1. Searching for "One Piece"...
+FATAL ERROR:
+"Could not find Chrome (ver. 143.0.7499.169). This can occur if either\n 1. you did not perform an installation before running the script (e.g. `npx puppeteer browsers install chrome`) or\n 2. your cache path is incorrectly configured (which is: C:\\Users\\armor\\.cache\\puppeteer).\nFor (2), check out our guide on configuring puppeteer at https://pptr.dev/guides/configuration."
+Stack:
+"Error: Could not find Chrome (ver. 143.0.7499.169). This can occur if either\n 1. you did not perform an installation before running the script (e.g. `npx puppeteer browsers install chrome`) or\n 2. your cache path is incorrectly configured (which is: C:\\Users\\armor\\.cache\\puppeteer).\nFor (2), check out our guide on configuring puppeteer at https://pptr.dev/guides/configuration.\n    at ChromeLauncher.resolveExecutablePath (C:\\Users\\armor\\OneDrive\\Documents\\Apps(Completed)\\manga-app\\node_modules\\puppeteer-core\\src\\node\\BrowserLauncher.ts:533:17)\n    at ChromeLauncher.computeLaunchArguments (C:\\Users\\armor\\OneDrive\\Documents\\Apps(Completed)\\manga-app\\node_modules\\puppeteer-core\\src\\node\\ChromeLauncher.ts:131:16)\n    at async ChromeLauncher.launch (C:\\Users\\armor\\OneDrive\\Documents\\Apps(Completed)\\manga-app\\node_modules\\puppeteer-core\\src\\node\\BrowserLauncher.ts:109:24)\n    at async Object.search (C:\\Users\\armor\\OneDrive\\Documents\\Apps(Completed)\\manga-app\\src\\lib\\scraper\\sources\\mangaplus.ts:11:25)\n    at async testMangaPlus (C:\\Users\\armor\\OneDrive\\Documents\\Apps(Completed)\\manga-app\\test-mangaplus.ts:21:25)"

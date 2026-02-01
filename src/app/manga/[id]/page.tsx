@@ -30,7 +30,7 @@ export default async function MangaDetails({ params, searchParams }: PageProps) 
     let aniListMedia = null;
 
     // 1. Check if we're dealing with an AniList ID
-    const isAniList = initialSourceId === 'anilist' || /^\d{3,}$/.test(id);
+    const isAniList = initialSourceId === 'anilist';
 
     if (isAniList) {
         // Fetch AniList metadata in parallel with potential mapping lookup

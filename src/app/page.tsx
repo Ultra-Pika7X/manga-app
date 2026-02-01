@@ -2,80 +2,47 @@ import Navbar from '@/components/Navbar';
 import BannerCarousel from '@/components/BannerCarousel';
 import MangaRow from '@/components/MangaRow';
 import ContinueReading from '@/components/ContinueReading';
-import { browseManga, getRecommendations, convertAniListToManga } from '@/lib/anilist';
-import { getVerifiedUpdates } from './actions';
-
-function getCurrentSeason() {
-  const month = new Date().getMonth();
-  if (month >= 2 && month <= 4) return 'SPRING';
-  if (month >= 5 && month <= 7) return 'SUMMER';
-  if (month >= 8 && month <= 10) return 'FALL';
-  return 'WINTER';
-}
+import { ScraperEngine } from '@/lib/scraper';
 
 export default async function Home() {
-  const season = getCurrentSeason();
-  const year = new Date().getFullYear();
+  // Fetch content in parallel
+  // 1. Updates
+  // 2. Featured (Top hits)
 
-  // Fetch all rows in parallel
-  const [trendingRes, popularRes, seasonRes, updatedManga, topRatedRes, recRes] = await Promise.all([
-    browseManga({ sort: ['TRENDING_DESC'], perPage: 10 }),
-    browseManga({ sort: ['POPULARITY_DESC'], perPage: 15 }),
-    browseManga({ season, seasonYear: year, sort: ['POPULARITY_DESC'], perPage: 10 }),
-    getVerifiedUpdates(),
-    browseManga({ sort: ['SCORE_DESC'], perPage: 10 }),
-    getRecommendations(1, 10)
+  const featuredTitles = ["One Piece", "Jujutsu Kaisen", "Chainsaw Man", "Boruto", "Spy x Family"];
+
+  const [updates, ...featuredResults] = await Promise.all([
+    ScraperEngine.getUpdates('mangaplus').catch(() => []),
+    ...featuredTitles.map(title => ScraperEngine.search(title, 'mangaplus').then(res => res[0]).catch(() => null))
   ]);
 
-  const trendingManga = trendingRes.media.map(convertAniListToManga);
-  const popularManga = popularRes.media.map(convertAniListToManga);
-  const seasonManga = seasonRes.media.map(convertAniListToManga);
-  // updatedManga is already converted by the action
-  const topRatedManga = topRatedRes.media.map(convertAniListToManga);
-  const recManga = recRes.map(convertAniListToManga);
+  const featuredManga = featuredResults.filter(m => m !== null) as any[];
 
   return (
     <main className="min-h-screen bg-cloudy pb-20">
       <Navbar />
 
-      <BannerCarousel mangaList={trendingManga.slice(0, 5)} />
+      {featuredManga.length > 0 && <BannerCarousel mangaList={featuredManga} />}
 
       <ContinueReading />
 
-      <MangaRow
-        title="Trending Now"
-        mangaList={trendingManga}
-        viewAllLink="/browse?sort=TRENDING_DESC"
-        color="purple"
-      />
-
-      <MangaRow
-        title="Popular This Season"
-        mangaList={seasonManga}
-        viewAllLink={`/browse?sort=POPULARITY_DESC&season=${season}&year=${year}`}
-        color="green"
-      />
-
-      <MangaRow
-        title="Recommended for You"
-        mangaList={recManga}
-        viewAllLink="/browse"
-        color="orange"
-      />
-
-      <MangaRow
-        title="Recently Updated"
-        mangaList={updatedManga}
-        viewAllLink="/browse?sort=UPDATED_AT_DESC"
-        color="blue"
-      />
-
-      <MangaRow
-        title="Top Rated"
-        mangaList={topRatedManga}
-        viewAllLink="/browse?sort=SCORE_DESC"
-        color="pink"
-      />
+      <div className="px-4 md:px-8 mt-8">
+        <h2 className="text-2xl font-bold text-white mb-4 drop-shadow-lg">Latest Updates</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {updates.map((manga) => (
+            <div key={manga.id} className="bg-glass-dark p-3 rounded-xl hover:scale-105 transition-transform duration-300">
+              <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-2">
+                <img src={manga.cover} alt={manga.title} className="object-cover w-full h-full" />
+                <div className="absolute top-0 right-0 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-bl-lg">
+                  UP
+                </div>
+              </div>
+              <h3 className="text-white font-semibold truncate">{manga.title}</h3>
+              <p className="text-gray-400 text-xs">{manga.sourceId}</p>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Spacer for bottom nav if mobile */}
       <div className="h-12 md:h-0" />

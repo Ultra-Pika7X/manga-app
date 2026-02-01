@@ -8,6 +8,7 @@ import { ReaderBar } from './ReaderBar';
 import { ReaderSettingsDrawer } from './ReaderSettingsDrawer';
 import { useHistory } from '@/hooks/useHistory';
 import { useAniList } from '@/hooks/useAniList';
+import { useDownload } from '@/hooks/useDownload';
 import { cn } from '@/lib/utils';
 
 interface MangaReaderProps {
@@ -57,6 +58,21 @@ function MangaReaderInner({
     const { settings, state, updateSettings, setCurrentPageIndex } = useReader();
     const { addToHistory } = useHistory();
     const { syncProgress } = useAniList();
+    const { queueDownload } = useDownload();
+
+    const handleDownload = () => {
+        queueDownload({
+            id: `${mangaId}_${chapterId}`,
+            mangaId,
+            chapterId,
+            sourceId,
+            mangaTitle,
+            chapterTitle,
+            cover
+        });
+        // Optional: Show toast
+        console.log('Download started');
+    };
 
     let controlsTimeoutRef = useRef<NodeJS.Timeout>();
 
@@ -187,6 +203,7 @@ function MangaReaderInner({
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onPrevChapter={onPrevChapter}
                 onNextChapter={onNextChapter}
+                onDownload={handleDownload}
                 hasPrevChapter={hasPrevChapter}
                 hasNextChapter={hasNextChapter}
             />

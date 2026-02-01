@@ -12,7 +12,8 @@ import {
     ChevronRight,
     Monitor,
     AlignVerticalJustifyStart,
-    Columns2
+    Columns2,
+    Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,7 @@ interface ReaderBarProps {
     onOpenSettings: () => void;
     onPrevChapter?: () => void;
     onNextChapter?: () => void;
+    onDownload?: () => void;
     hasPrevChapter?: boolean;
     hasNextChapter?: boolean;
 }
@@ -51,6 +53,7 @@ export function ReaderBar({
     onOpenSettings,
     onPrevChapter,
     onNextChapter,
+    onDownload,
     hasPrevChapter = false,
     hasNextChapter = false,
 }: ReaderBarProps) {
@@ -136,6 +139,15 @@ export function ReaderBar({
                                     )}
                                 >
                                     {settings.readingDirection.toUpperCase()}
+                                </button>
+
+                                {/* Download */}
+                                <button
+                                    onClick={onDownload}
+                                    className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-all"
+                                    title="Download Chapter"
+                                >
+                                    <Download className="w-5 h-5" />
                                 </button>
 
                                 {/* Settings */}

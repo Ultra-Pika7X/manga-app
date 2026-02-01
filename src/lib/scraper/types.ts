@@ -31,4 +31,5 @@ export interface MangaSource {
     search(query: string): Promise<Manga[]>;
     getMangaDetails(mangaId: string): Promise<MangaDetails | null>;
     getChapterImages(chapterId: string): Promise<string[]>;
+    getUpdates?(): Promise<Manga[]>;
 }
